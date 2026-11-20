@@ -1,0 +1,63 @@
+{
+  "version": 2,
+  "skills": {
+    "citation-management": {
+      "source": "K-Dense-AI/scientific-agent-skills",
+      "commit": "ec59a29a03d5c40f73ab40878df04860bc00e876",
+      "sourceType": "github",
+      "skillPath": "skills/citation-management/SKILL.md",
+      "computedHash": "3b3bb7b57f41f5e6fdab85f7f3081df0cceedf37b377e3125cd87c14552e8650"
+    },
+    "citation-verification": {
+      "source": "KalarisLabs/research-agent-skills",
+      "commit": "a74b0dbe5fa865d73b9f250ba5b0c9f107bd1baa",
+      "sourceType": "github",
+      "skillPath": "skills/citation-verification/SKILL.md",
+      "computedHash": "7a4e2e8f38da6554ed3e33a206830621dc797b161be0e672d6cc7c26e21a67a0",
+      "installMode": "copy"
+    },
+    "literature-review": {
+      "source": "K-Dense-AI/scientific-agent-skills",
+      "commit": "ec59a29a03d5c40f73ab40878df04860bc00e876",
+      "sourceType": "github",
+      "skillPath": "skills/literature-review/SKILL.md",
+      "computedHash": "0bb3bac7e11a08edf1b9deb29db7eca3e33c61b00b9394e0f9b383b9bc55b5c3"
+    },
+    "scientific-visualization": {
+      "source": "K-Dense-AI/scientific-agent-skills",
+      "commit": "ec59a29a03d5c40f73ab40878df04860bc00e876",
+      "sourceType": "github",
+      "skillPath": "skills/scientific-visualization/SKILL.md",
+      "computedHash": "a9ea119baafe77128193200a93acf35f56ce8c52038253a4bcef4f0da41e7e70"
+    },
+    "scientific-writing": {
+      "source": "KalarisLabs/research-agent-skills",
+      "commit": "a74b0dbe5fa865d73b9f250ba5b0c9f107bd1baa",
+      "sourceType": "github",
+      "skillPath": "skills/scientific-writing/SKILL.md",
+      "computedHash": "f8f614641d5b2e7b39e3ac7f4efd915070d0420cb92e74d9859269f2c49b370c",
+      "installMode": "copy"
+    },
+    "statistical-analysis": {
+      "source": "K-Dense-AI/scientific-agent-skills",
+      "commit": "ec59a29a03d5c40f73ab40878df04860bc00e876",
+      "sourceType": "github",
+      "skillPath": "skills/statistical-analysis/SKILL.md",
+      "computedHash": "7428d347cfe2f52324cba1aaf30031fc480d47a65dfb932879ec25ca5c7eac7f"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "computedHash": "79ff0583175346e39431b0dc713b223edd1bd7a7ea2b6c8b78b2fb9a3fed6782"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
+      "computedHash": "09b0e3a4689c1c38a3b8fc6ef57a1d4165aa33c0013d546dbde9dd348941a319"
+    }
+  }
+}
