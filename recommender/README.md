@@ -1,16 +1,27 @@
 # Recommender
 
-Turns the learner model into a short, ranked list of next activities per
-learner. Every recommendation carries a reason code, a sentence for the
-learner, and its **basis**: the learner's own answers, a model estimate, or
-plain course order.
+Turns each learner's profile into a ranked **queue** of next activities. It is
+rule-based on purpose: every recommendation must be explainable to the learner
+in one sentence they can check against their own results. Each item carries
+
+- a **reason code** and a sentence for the learner ("2 of 8 questions
+  answered correctly"), never a raw probability;
+- its **basis**: the learner's own answers (`evidence`), a model estimate
+  (`prediction`), or plain course order;
+- an `evidence` JSON object with the numbers, for teachers.
+
+The rules decide *what* is worth recommending (revise a failed quiz's lessons,
+review a weak KC, prepare for the next quiz, continue the course); a fixed
+slot layout decides *how many of each* reach the visible top 5, so a learner
+is never stuck in remediation. Precomputed **failure branches** let Moodle
+react to a failed quiz at once, without waiting for the engine.
 
 ```bash
-python knowledge-engine.py estimate --course 10   # knowledge states
-python learner-model.py --course 10               # learner profiles
-python recommend.py generate --course 10          # -> courses/local/10/recommendations/
-python recommend.py evaluate --course 10          # offline replay (needs requirements-kt.txt
-                                                  #    when a deep model is promoted)
+python knowledge-engine.py estimate --course <id>   # knowledge states
+python learner-model.py --course <id>               # learner profiles
+python recommend.py generate --course <id>          # -> courses/<site>/<id>/recommendations/
+python recommend.py evaluate --course <id>          # offline replay against baselines (.venv-kt
+                                                    #    when a deep model is promoted)
 ```
 
 `recommend.py` in the repository root is the same as `python -m recommender`.
@@ -121,7 +132,7 @@ learners have at least one evidence- or prediction-based item.
 
 ## Evaluation
 
-`python -m recommender evaluate --cutoffs 6 --horizon-days 7` replays the
+`recommend.py evaluate --course <id> --cutoffs 6 --horizon-days 7` replays the
 pipeline at past cutoffs (knowledge states up to T-1, learner model strictly
 before T) and compares `rules` with three baselines: `course_order` (first
 open activities from the top of the course), `popularity`, `random`. It
@@ -138,23 +149,8 @@ Leakage controls: the `bkt` variant has no trained weights and is scored on
 every learner; the `active` variant (a promoted deep model, trained on the
 whole period) is scored only on its held-out test learners.
 
-Result on the 300 simulated learners of course 10 (seed 7, 6 cutoffs, 7 days,
-top 5; 2026-11-16):
-
-| Estimator | Policy | hit@5 | MRR |
-| --- | --- | --- | --- |
-| BKT, all learners | rules | 0.46 | 0.28 |
-| | popularity | 0.30 | 0.15 |
-| | random | 0.13 | 0.06 |
-| | course order | 0.07 | 0.06 |
-| AKT, 57 held-out | rules | 0.51 | 0.33 |
-| | popularity | 0.32 | 0.16 |
-
-Later accuracy on KCs flagged for remediation was 0.70 against 0.86 on the
-learners' other answered KCs (BKT; 4,683 answers), and 0.51 against 0.69 for
-prediction-flagged KCs (AKT, held-out learners; 272 answers). About 61 % of
-learners had at least one personalised item; 70 to 77 % of rows were course
-order. These numbers describe the simulator.
+Results on the test course: [docs/test_course_results.md](../docs/test_course_results.md).
+They describe the simulator, not real learners.
 
 ## Limits
 

@@ -1,18 +1,37 @@
 # Learner model
 
-Builds one learner profile per enrolled learner of a Moodle course, from that
-course's own data: knowledge states from `knowledge_engine`, and behavior,
-engagement and history from the Moodle collector. No benchmark dataset is an
-input.
+Builds one **learner profile** per enrolled learner of a course: what the
+learner knows, where they struggle, and how they work. It joins two sources:
+
+- knowledge states from `knowledge_engine` (per learner and KC);
+- behaviour, engagement and history from the collector's export (events,
+  sessions, quiz attempts, completion).
+
+The profile is the single description of a learner that the recommender and
+the teacher pages read. No benchmark dataset is an input.
+
+| Component | Answers the question | Main output |
+| --- | --- | --- |
+| knowledge | how likely is a correct answer on each KC, and on what evidence? | `learner_kc_state.csv` |
+| knowledge levels | what do the learner's own answers say per KC? | `knowledge_level` in `weak_areas.csv` |
+| skills / dimensions | how does the learner do per unit x dimension, and per dimension? | `learner_skill_summary.csv`, `learner_dimension_summary.csv` |
+| weak areas | which KCs are a concern, and is that based on answers or on a prediction? | `weak_areas.csv` |
+| activity state | which quizzes are passed or failed, which lessons were viewed, when? | `learner_activity_state.csv` |
+| behaviour, engagement, history | how often, how long and how regularly does the learner work? | `learner_behavior.csv`, `learner_engagement.csv`, `learner_history.csv` |
+| profile | one summary row per learner: population, estimator phase, component status | `learner_profile.csv` |
+| quiz history | every finished attempt, score and pass mark | `learner_quiz_attempts.csv` |
+
+Every column is defined in [the data contract](docs/learner_model_data_contract.md)
+and [component definitions](docs/component_definitions.md).
 
 ## Build
 
 From the repository root:
 
 ```bash
-python moodle-collector.py --course 10            # Moodle -> courses/local/10/data/
-python knowledge-engine.py estimate --course 10   # -> learner-by-KC knowledge states
-python learner-model.py --course 10               # -> courses/local/10/learner_model/
+python moodle-collector.py --course <id>            # Moodle -> courses/<site>/<id>/data/
+python knowledge-engine.py estimate --course <id>   # -> learner-by-KC knowledge states
+python learner-model.py --course <id>               # -> courses/<site>/<id>/learner_model/
 ```
 
 `learner-model.py` is the same as `python -m learner_model.builder`.

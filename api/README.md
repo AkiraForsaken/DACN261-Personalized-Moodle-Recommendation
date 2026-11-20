@@ -1,7 +1,21 @@
 # api: the engine service
 
 Moodle asks, the engine computes, Moodle imports. The service is the boundary
-between the Moodle plugin `local_microlearning` and the Python engine.
+between the Moodle plugin `local_microlearning` and the Python engine:
+
+```
+Moodle (observer, ad hoc task, nightly task)
+   │  POST refresh / run          X-API-Token
+   ▼
+engine service ── collector (read-only DB) → model stages → bundle
+   │  GET bundle.zip
+   ▼
+Moodle imports it with the same checks as a CLI import
+```
+
+The engine never writes to Moodle, and Moodle's tables act as the cache: if
+the engine is down, the block keeps showing the stored queue and refresh
+requests wait until it is back.
 
 ```bash
 set -a; . moodle-docker/api.env; set +a                # API_TOKEN (same value Moodle sends)
@@ -63,12 +77,8 @@ with the job id. A failed job answers 502 with its error.
   snapshot.
 - The privacy provider declares the engine as an external location.
 
-## Verified (2026-11-18, course 10)
+## Tests and verification
 
-From the Moodle container: health; refresh and import of user 7 in 1.07 s;
-a request row queued the ad hoc task, which refreshed the learner and
-answered the request; with the service stopped the task failed, the request
-stayed pending and the block still rendered; after restart the retried task
-answered it; `full_sync` rebuilt the course in 63 s (snapshot 3).
-Tests: `tests/test_api.py` (auth, refresh and full run with real model stages,
-bundle zip, batching, failures).
+`tests/test_api.py` covers authentication, refresh and full run with the real
+model stages, the bundle zip, batching and failures. What was checked live
+against a running Moodle: [docs/test_course_results.md](../docs/test_course_results.md).

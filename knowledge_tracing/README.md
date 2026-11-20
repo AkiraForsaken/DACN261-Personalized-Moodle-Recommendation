@@ -13,7 +13,22 @@ checkpoint cannot score a Moodle course, and benchmark learners are not Moodle
 learners. Nothing under `learner_model/` or `knowledge_engine/` reads the
 benchmark files.
 
-# Benchmark knowledge-state extraction
+## The steps, shared by both uses
+
+| Step | Module | Does |
+| --- | --- | --- |
+| prepare | `prepare_data.py` | answer log → question and concept maps, per-learner sequences, learner-level train / validation / test folds |
+| pyKT format | `init_pykt_dataset.py` | writes the files pyKT's dataset loader reads, keeping the folds exactly |
+| train | `train.py` | trains over several seeds: DKT, AKT and SAKT for the benchmark, AKT only for a course |
+| evaluate | `evaluate.py` | scores the trained models on the held-out test fold only |
+| select / infer | `inference.py`, `export_states.py` | loads the selected checkpoint and exports learner-by-KC estimates |
+
+Folds are assigned per learner, so no learner's answers are split between
+training and testing. The benchmark runs these steps by hand (the notebooks
+`01`–`03` document them); for a course, `knowledge_engine train` runs them and
+adds the promotion gate.
+
+## Benchmark: knowledge-state extraction
 
 The extractor loads the selected AKT checkpoint and produces one record per
 learner and Knowledge Component. It preserves observed accuracy separately
@@ -22,7 +37,7 @@ correctly; `predicted_correctness` is not a mastery probability. Assigned
 learners with no valid answer history remain cold-start rows; the prediction
 does not fabricate historical evidence.
 
-## Run
+### Run
 
 From the repository root, use an environment with pandas, NumPy, PyTorch, and
 `pykt-toolkit==0.0.38` installed:
@@ -67,22 +82,22 @@ question's embedding had no training evidence. Neither field is a mastery
 probability, and comparisons with historical accuracy in the report are
 descriptive rather than calibration or error estimates.
 
-## Selected checkpoint
+## Benchmark: selected checkpoint
 
 AKT seed 43 is selected by validation AUC across the saved architecture/seed
 runs. It reached validation AUC `0.86697` at epoch 25. Its held-out test metrics
 are recorded for generalization reporting only and were not used for selection.
 
-## Course (Moodle) data
+## Course model (driven by knowledge_engine)
 
 Do not run these scripts by hand for a course. `knowledge_engine` drives them,
 checks that enough answers exist, and decides whether the trained model may
 replace the Phase 1 estimator:
 
 ```bash
-python -m knowledge_engine status   --course 10   # readiness and the active estimator
-.venv-kt/bin/python -m knowledge_engine train --course 10   # prepare -> train -> evaluate -> gate
-python -m knowledge_engine estimate --course 10   # learner-by-KC states for the learner model
+python -m knowledge_engine status   --course <id>   # readiness and the active estimator
+.venv-kt/bin/python -m knowledge_engine train --course <id>   # prepare -> train -> evaluate -> gate
+python -m knowledge_engine estimate --course <id>   # learner-by-KC states for the learner model
 ```
 
 Inputs come from the Moodle collector: `question_answer_events.csv`,

@@ -1,17 +1,27 @@
 # Moodle collector
 
-Exports one Moodle course to CSV with read-only SQL. Its output is the input of
-`knowledge_engine` and `learner_model`. Knowledge Components come from the
-course's own question bank; no benchmark dataset is involved.
+The first stage of the course pipeline. It exports one Moodle course to CSV
+files with read-only SQL, so every later stage works on a fixed, auditable
+snapshot instead of a live database:
+
+- **who** the learners are (roster, with a per-learner `is_simulated` label);
+- **what** the course contains (activities in course order, quizzes and pass
+  marks) and **which Knowledge Components** it teaches, derived from the
+  course's own question bank;
+- **what learners did**: graded answers per question and KC, quiz attempts,
+  page views and other events grouped into sessions, activity completion.
+
+Its output is the input of `knowledge_engine` and `learner_model`. No
+benchmark dataset is involved, and nothing is written to Moodle.
 
 ## Run
 
-From the repository root:
+From the repository root, in `.venv` (it needs the `mariadb` driver):
 
 ```bash
-export MOODLE_DOCKER_DBPASS=...                    # see "Configuration"
-python moodle-collector.py --course 10             # -> courses/local/10/data/
-python moodle-collector.py --course 10 --learners 7,12   # per-learner refresh
+export MOODLE_DOCKER_DBPASS=...                           # see "Configuration"
+python moodle-collector.py --course <id>                  # -> courses/<site>/<id>/data/
+python moodle-collector.py --course <id> --learners 7,12  # only these learners' rows
 ```
 
 Options: `--course` (default `$MOODLE_COURSE_ID`, else the first visible
@@ -21,7 +31,8 @@ folder) and `--learners` (comma-separated Moodle user ids).
 
 With `--learners`, the course structure (activities, KC catalog and maps) is
 still exported in full, but every per-learner file (roster, events, attempts,
-answers, completion) holds only the named learners' rows.
+answers, completion) holds only the named learners' rows. This is what makes a
+per-learner refresh fast.
 
 From Python:
 

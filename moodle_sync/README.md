@@ -1,13 +1,16 @@
 # moodle_sync and the Moodle plugins
 
 Delivers learner profiles and recommendations to Moodle, keeps them fresh per
-learner, and shows them there.
+learner, and shows them there. Moodle computes no analytics: it stores and
+displays what the pipeline produced. Two small parts run live in Moodle,
+because they must react instantly: the block works through the learner's
+stored queue, and an observer notices when a learner needs a refresh.
 
 ```
 learner_model + recommender (course workspace)
         │  moodle-sync.py bundle | push          flat CSVs + manifest.json (bundle schema 3)
         ▼
-courses/<site>/<course>/bundle/   or  refresh/<stamp>/bundle/ (one learner)
+courses/<site>/<id>/bundle/   or  refresh/<stamp>/bundle/ (some learners)
         │  Moodle downloads it from the engine service (plugin 0.3.0, api/)
         │  or, without an engine URL: docker cp + plugin CLI (push / worker)
         ▼
@@ -16,10 +19,11 @@ local_microlearning   tables, import, refresh requests (observer), teacher pages
 block_microlearning   "Recommended for you" on the course page (students)
 ```
 
-Moodle computes no analytics. It stores and displays what the pipeline
-produced, with two small live parts: the block works through the learner's
-stored queue (`recommendation_window`), and an observer records when a
-learner needs a refresh.
+**Why a bundle.** The engine and Moodle can run on different machines and at
+different times. A bundle is one self-describing package: its manifest names
+the course, the kind of update, the time the data was read, and a SHA-256 per
+file. Moodle imports it in one transaction or rejects it as a whole, so a
+half-written or stale result never reaches learners.
 
 ## Install / upgrade
 
@@ -28,7 +32,7 @@ The plugins live in the Moodle fork: `moodle/public/local/microlearning` and
 
 ```bash
 docker exec moodle-docker-webserver-1 php /var/www/html/admin/cli/upgrade.php --non-interactive
-python moodle-sync.py push --course 10          # after an upgrade that recreates the tables (0.2.0): push again
+python moodle-sync.py push --course <id>         # after an upgrade that recreates the tables (0.2.0): push again
 ```
 
 Installed versions: `local_microlearning` 0.3.0, `block_microlearning` 0.1.0
@@ -44,10 +48,11 @@ failed quiz, and the engine service: `engineurl`, `enginetoken`,
 ## Publish and refresh
 
 ```bash
-./run_pipeline.sh --course 10                        # full run: collector -> ... -> new snapshot
-python moodle-sync.py push --course 10               # only the last step
-python moodle-sync.py worker --course 10             # answer refresh requests (Ctrl-C to stop)
-python moodle-sync.py refresh --course 10 --learners 7,12   # refresh named learners by hand
+./run_pipeline.sh --course <id>                          # full run: collector -> ... -> new snapshot
+python moodle-sync.py push --course <id>                 # only the last step
+python moodle-sync.py worker --course <id>               # fallback: answer refresh requests (Ctrl-C to stop)
+python moodle-sync.py worker --course <id> --once        # one poll, then exit (for cron)
+python moodle-sync.py refresh --course <id> --learners 7,12   # refresh named learners by hand
 ```
 
 ### The per-learner refresh loop
@@ -169,35 +174,13 @@ transport is no longer needed. `push`, `refresh` and the polling `worker`
 remain for development and as a fallback when no engine URL is set
 (`local_microlearning | engineurl`).
 
-## What has been verified (2026-11-18, course 10, Moodle 5.2.4)
+## Tests and verification
 
-- Upgrade to 0.2.0; `./run_pipeline.sh --course 10` imports 301 profiles,
-  28,896 KC states, 9,632 skill rows, 1,204 dimension rows, 2,118 attempts and
-  36,487 queue rows (head unchanged: 948 course order, 476 evidence,
-  81 prediction rows in the top 5). Import of the full snapshot: 4.5 s.
-- End to end with a throwaway student (removed afterwards): enrolment wrote a
-  `new_learner` request; before the refresh the block showed the first
-  unfinished activity; `worker --once` refreshed that learner only in 1.25 s
-  (collect 0.48, model 0.48, import 0.29) and answered the request; viewing the
-  five shown pages one by one refilled the list each time; after the fifth a
-  `list_done` request appeared; the next worker tick refreshed the learner
-  (1.1 s) and the block continued from the new queue.
-- Block rendered as the student, as user 7, and as the manager (teacher note).
-- Teacher pages rendered in Firefox (Selenium) and from the CLI: a simulated
-  learner with history, user 7 (cold start: everything "not answered yet"),
-  the cohort with the population filter; a student is refused on both pages.
-- PHP `recommendation_window::select` agrees with the Python rule on all 45
-  shared fixture cases (run inside the container by the Python test suite).
-
-**Not yet checked:** the `quiz_failed` trigger with a real quiz attempt, the
-Privacy API export and deletion, the PHPUnit tests (`importer_test`,
-`recommendation_window_test`; they need Composer's dependencies in the Moodle
-checkout), and the daily full rebuild over a real night.
-
-**Known limitation:** Moodle's chart API passes axis bounds in the Chart.js 2
-form (`ticks.min`), which the bundled Chart.js ignores, so the quiz-score
-axis is auto-scaled instead of 0-100 % (the axis label and the data table give
-the exact values).
+`tests/test_moodle_sync.py` and `tests/test_worker.py` cover the bundle,
+workspace isolation, the worker, and the equivalence of a per-learner refresh
+with a full run. The PHP window rule is checked against the shared fixture
+inside the web container. What was checked live, what is not yet checked, and
+a known chart limitation: [docs/test_course_results.md](../docs/test_course_results.md).
 
 ```bash
 # PHPUnit, once Composer is available in the container:
