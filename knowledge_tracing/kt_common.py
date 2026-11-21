@@ -60,6 +60,11 @@ TRAIN_FOLD, VALID_FOLD, TEST_FOLD = 0, 1, -1
 # (courses/<site>/<course_id>/kt/), named by the KT_COURSE_DIR environment
 # variable. knowledge_engine sets it for every call and subprocess, so two
 # courses can never share or overwrite a model.
+#
+# An *external* benchmark (ednet_kt1) reuses the same mechanism with the
+# variable pointing at data/benchmarks/<name>_<N>/kt: its configs and artifacts
+# then live there, and the english_kt files in configs/ and artifacts/ are never
+# written. Such a folder is benchmark output; no course or Moodle code reads it.
 COURSE_KT_ENV = "KT_COURSE_DIR"
 
 
@@ -143,7 +148,9 @@ def load_data_config(dataset_name: str = DATASET_NAME) -> dict:
 
 def dataset_artifacts_dir(dataset_name: str = DATASET_NAME) -> Path:
     """The benchmark keeps its original layout; a course model sits in its workspace."""
-    return ARTIFACTS_DIR if is_benchmark(dataset_name) else course_kt_dir() / "artifacts"
+    return (
+        ARTIFACTS_DIR if is_benchmark(dataset_name) else course_kt_dir() / "artifacts"
+    )
 
 
 def selected_model_path(dataset_name: str = DATASET_NAME) -> Path:
@@ -159,9 +166,27 @@ def selected_model_path(dataset_name: str = DATASET_NAME) -> Path:
     return dataset_artifacts_dir(dataset_name) / "selected_model.json"
 
 
+# Extra benchmark models (DKVMN, SAINT). Lives outside configs/ so the curated
+# configuration is never edited; a key defined in configs/model_configs.json wins.
+EXTRA_MODEL_CONFIGS = KT_DIR / "extra_model_configs.json"
+
+
 def load_model_configs() -> dict:
     cfg = json.loads((CONFIG_DIR / "model_configs.json").read_text())
-    return {k: v for k, v in cfg.items() if not k.startswith("_")}
+    merged = {k: v for k, v in cfg.items() if not k.startswith("_")}
+    if EXTRA_MODEL_CONFIGS.exists():
+        extra = json.loads(EXTRA_MODEL_CONFIGS.read_text())
+        for k, v in extra.items():
+            if not k.startswith("_") and k not in merged:
+                merged[k] = v
+    # A sensitivity run (e.g. each model's best searched configuration) names a
+    # JSON file of full per-model configs here; nothing curated is edited.
+    override = os.getenv("KT_MODEL_CONFIG_OVERRIDES")
+    if override:
+        for k, v in json.loads(Path(override).read_text()).items():
+            if not k.startswith("_"):
+                merged[k] = v
+    return merged
 
 
 # --------------------------------------------------------------------------- #

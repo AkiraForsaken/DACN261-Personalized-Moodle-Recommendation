@@ -10,6 +10,7 @@ Usage (project root):
     python knowledge_tracing/train.py --models akt             # one model
     python knowledge_tracing/train.py --seeds 42 43 44         # 3 seeds -> mean/std in evaluate.py
     python knowledge_tracing/train.py --epochs 2               # quick smoke test
+    python knowledge_tracing/train.py --skip-existing          # resume: reuse finished runs
 
 Per run, in knowledge_tracing/artifacts/<model>/seed<k>/ :
     qid_model.ckpt   best-validation-AUC state_dict written by pyKT's train_model
@@ -43,7 +44,9 @@ from kt_common import (
     set_seed,
 )
 
-SUPPORTED = ["dkt", "akt", "sakt"]
+DEFAULT_MODELS = ["dkt", "akt", "sakt"]
+# DKVMN and SAINT: extra EdNet benchmark models (configs in extra_model_configs.json).
+SUPPORTED = DEFAULT_MODELS + ["dkvmn", "saint"]
 
 
 class Tee:
@@ -61,6 +64,25 @@ class Tee:
             st.flush()
 
 
+def finished_run(run_dir: Path, mcfg: dict, tcfg: dict) -> dict | None:
+    """The run's summary if it completed with the same configuration, else None.
+
+    A run is finished only when run_summary.json (written last) and the
+    checkpoint both exist and the summary records the same model and training
+    configuration. A run killed mid-training has no summary and is redone.
+    """
+    summary_path = run_dir / "run_summary.json"
+    if not (summary_path.exists() and (run_dir / f"{EMB_TYPE}_model.ckpt").exists()):
+        return None
+    try:
+        summary = json.loads(summary_path.read_text())
+    except json.JSONDecodeError:
+        return None
+    if summary.get("model_config") != mcfg or summary.get("training") != tcfg:
+        return None
+    return summary
+
+
 def train_one(
     model_name: str,
     seed: int,
@@ -68,17 +90,25 @@ def train_one(
     data_cfg: dict,
     model_cfgs: dict,
     dataset_name: str = DATASET_NAME,
+    skip_existing: bool = False,
+    run_dir: Path | None = None,
 ) -> dict:
-    import torch
-    from torch.utils.data import DataLoader
-    from pykt.models import init_model, train_model
-
     mcfg = model_cfgs[model_name]["model_config"]
     tcfg = dict(model_cfgs[model_name]["training"])
     if epochs_override:
         tcfg["num_epochs"] = epochs_override
 
-    run_dir = dataset_artifacts_dir(dataset_name) / model_name / f"seed{seed}"
+    run_dir = Path(run_dir) if run_dir else (
+        dataset_artifacts_dir(dataset_name) / model_name / f"seed{seed}"
+    )
+    if skip_existing and (done := finished_run(run_dir, mcfg, tcfg)) is not None:
+        print(f"=== {model_name.upper()} | seed {seed}: finished run reused ({run_dir})")
+        return done
+
+    import torch
+    from torch.utils.data import DataLoader
+    from pykt.models import init_model, train_model
+
     run_dir.mkdir(parents=True, exist_ok=True)
 
     with open(run_dir / "train.log", "w") as logf, contextlib.redirect_stdout(
@@ -102,7 +132,12 @@ def train_one(
 
         model = init_model(model_name, mcfg, data_cfg, EMB_TYPE)
         n_params = sum(p.numel() for p in model.parameters())
-        opt = torch.optim.Adam(model.parameters(), lr=tcfg["learning_rate"])
+        # weight_decay only appears in tune.py trials; absent = 0.0, as in every main run.
+        opt = torch.optim.Adam(
+            model.parameters(),
+            lr=tcfg["learning_rate"],
+            weight_decay=tcfg.get("weight_decay", 0.0),
+        )
 
         t0 = time.time()
         # test_loader=None on purpose: model selection must not see the test split.
@@ -151,7 +186,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--models", nargs="+", default=SUPPORTED, choices=SUPPORTED)
+    ap.add_argument("--models", nargs="+", default=DEFAULT_MODELS, choices=SUPPORTED)
     ap.add_argument("--seeds", nargs="+", type=int, default=[42])
     ap.add_argument("--dataset-name", default=DATASET_NAME)
     ap.add_argument(
@@ -160,12 +195,20 @@ def main() -> None:
         default=None,
         help="override num_epochs from model_configs.json",
     )
+    ap.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="reuse runs that already finished with the same configuration "
+        "(resume after an interrupted session)",
+    )
     args = ap.parse_args()
 
     data_cfg = load_data_config(args.dataset_name)
     model_cfgs = load_model_configs()
     rows = [
-        train_one(m, s, args.epochs, data_cfg, model_cfgs, args.dataset_name)
+        train_one(
+            m, s, args.epochs, data_cfg, model_cfgs, args.dataset_name, args.skip_existing
+        )
         for m in args.models
         for s in args.seeds
     ]

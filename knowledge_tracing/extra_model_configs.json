@@ -1,0 +1,29 @@
+{
+  "_note": "Additional benchmark models (EdNet-KT1). Kept outside configs/ so the curated benchmark configuration stays untouched; keys in configs/model_configs.json always take precedence. Modest settings in the style of model_configs.json (SAINT mirrors SAKT's 64-dim, 4-head, 2-block setup).",
+  "dkvmn": {
+    "model_config": {
+      "dim_s": 64,
+      "size_m": 50,
+      "dropout": 0.2
+    },
+    "training": {
+      "learning_rate": 0.001,
+      "batch_size": 64,
+      "num_epochs": 50
+    }
+  },
+  "saint": {
+    "model_config": {
+      "seq_len": 200,
+      "emb_size": 64,
+      "num_attn_heads": 4,
+      "n_blocks": 2,
+      "dropout": 0.2
+    },
+    "training": {
+      "learning_rate": 0.001,
+      "batch_size": 64,
+      "num_epochs": 50
+    }
+  }
+}
