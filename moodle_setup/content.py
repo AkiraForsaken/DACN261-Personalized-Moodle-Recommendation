@@ -29,8 +29,16 @@ reading a lesson never shows a quiz answer.
 
 ``build_spec`` turns the content into the JSON the Moodle build script reads:
 one question category per KC (ID number = kc_id) under a category per
-dimension, one lesson page per KC (course-module ID number = kc_id), and one
-practice quiz per unit and dimension.
+dimension and one lesson page per KC, plus, depending on the layout:
+
+* ``kc`` (default, course ENG-MICRO-KC): the microlearning layout. Every
+  activity concerns exactly one KC: its lesson, then a 4-5 question check quiz
+  on that KC alone, so a quiz's pass/fail result points at one KC. The KC of
+  an activity is attached in Moodle as a course-module competency (framework
+  ``KC_FRAMEWORK_IDNUMBER``, competency ID number = kc_id). Questions keep
+  their KC question category: Moodle has no per-question competency.
+* ``dimension`` (course ENG-MICRO, id 10): one practice quiz per unit and
+  dimension mixing ~3 KCs; the lesson's KC is its course-module ID number.
 """
 
 import csv
@@ -41,7 +49,20 @@ from pathlib import Path
 COURSE_DIR = Path(__file__).resolve().parent / "course"
 COURSE_FULLNAME = "English Microlearning"
 COURSE_SHORTNAME = "ENG-MICRO"
+LAYOUT_DIMENSION = "dimension"  # one quiz per unit and dimension (course 10)
+LAYOUT_KC = "kc"  # one lesson + one quiz per KC
+LAYOUTS = (LAYOUT_KC, LAYOUT_DIMENSION)
+DEFAULT_LAYOUT = LAYOUT_KC
+COURSES = {
+    LAYOUT_DIMENSION: (COURSE_FULLNAME, COURSE_SHORTNAME),
+    LAYOUT_KC: ("English Microlearning (one KC per activity)", "ENG-MICRO-KC"),
+}
+KC_COURSE_SHORTNAME = COURSES[LAYOUT_KC][1]
+# Competency framework holding one competency per KC (layout ``kc``).
+KC_FRAMEWORK_IDNUMBER = "ENG-MICRO-KCS"
 MIN_QUESTIONS_PER_KC = 4
+# A one-KC check quiz stays short: 3-5 items (only enforced for layout ``kc``).
+MAX_QUESTIONS_PER_KC = 5
 OPTIONS_PER_QUESTION = 4
 DIMENSION_ORDER = ["Grammar", "Vocabulary", "Reading", "Writing"]
 CATALOG_COLUMNS = [
@@ -236,10 +257,12 @@ def _lesson_problems(catalog, lessons):
     return problems
 
 
-def validate(catalog, questions, lessons=None):
+def validate(catalog, questions, lessons=None, layout=LAYOUT_DIMENSION):
     """Return a list of problems; an empty list means the content is usable.
 
-    ``lessons`` is checked when given (``build_spec`` always gives it).
+    ``lessons`` is checked when given (``build_spec`` always gives it). With
+    ``layout="kc"`` a KC's questions form its whole check quiz, so a KC may
+    have at most ``MAX_QUESTIONS_PER_KC`` of them.
     """
     problems = []
     kc_ids = [kc["kc_id"] for kc in catalog]
@@ -285,6 +308,11 @@ def validate(catalog, questions, lessons=None):
             problems.append(
                 f"{kc_id}: {count} question(s), need at least {MIN_QUESTIONS_PER_KC}"
             )
+        if layout == LAYOUT_KC and count > MAX_QUESTIONS_PER_KC:
+            problems.append(
+                f"{kc_id}: {count} questions, a one-KC quiz takes at most "
+                f"{MAX_QUESTIONS_PER_KC}"
+            )
     if lessons is not None:
         problems.extend(_lesson_problems(catalog, lessons))
         stems = {question["stem"].lower() for question in questions}
@@ -301,11 +329,14 @@ def _unit_number(unit):
     return int("".join(ch for ch in unit if ch.isdigit()))
 
 
-def build_spec(course_dir=COURSE_DIR):
+def build_spec(course_dir=COURSE_DIR, layout=DEFAULT_LAYOUT):
     """Validated course specification for ``php/build_course.php``."""
+    if layout not in LAYOUTS:
+        raise ValueError(f"Unknown course layout {layout!r}; use one of {LAYOUTS}")
+    fullname, shortname = COURSES[layout]
     catalog, questions = load_catalog(course_dir), load_questions(course_dir)
     lessons = load_lessons(course_dir)
-    problems = validate(catalog, questions, lessons)
+    problems = validate(catalog, questions, lessons, layout=layout)
     if problems:
         raise ValueError("Course content is invalid:\n  " + "\n  ".join(problems))
     units = sorted({(_unit_number(kc["unit"]), kc["unit_name"]) for kc in catalog})
@@ -323,8 +354,10 @@ def build_spec(course_dir=COURSE_DIR):
             }
         )
     return {
-        "fullname": COURSE_FULLNAME,
-        "shortname": COURSE_SHORTNAME,
+        "fullname": fullname,
+        "shortname": shortname,
+        "layout": layout,
+        "kc_framework_idnumber": KC_FRAMEWORK_IDNUMBER,
         "dimensions": DIMENSION_ORDER,
         "units": [{"number": number, "name": name} for number, name in units],
         "kcs": [

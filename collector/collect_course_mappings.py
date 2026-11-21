@@ -20,13 +20,29 @@ Outputs (written to the collector output directory):
     kc_topic_map.csv            kc_id -> course topic, from the quizzes that
                                 use (or have used) the KC's questions
     kc_activity_map.csv         kc_id -> activities: role "learn" for a
-                                resource whose course-module ID number is the
-                                kc_id, role "practice" for a quiz that uses the
-                                KC's questions (question_count of them)
+                                learning resource of the KC (see below), role
+                                "practice" for a quiz that uses the KC's
+                                questions (question_count of them)
+    kc_mapping_report.json      where the activity links came from and the
+                                granularity checks (KCs per quiz, competency
+                                vs question disagreements, KCs without a
+                                lesson or quiz)
 
-A course module (page, URL, book, ...) whose ID number equals a catalog kc_id
-is that KC's learning resource. This is how a recommender finds what to show
-for a weak KC without any hand-maintained mapping.
+A KC's learning resource (page, URL, book, ...) is found in Moodle, in this
+order:
+
+  1. Course-module competencies (``competency_modulecomp``): a non-quiz module
+     linked to the competency whose ID number is the kc_id. This is the
+     Moodle-native way and the convention of the one-KC-per-activity course
+     (ENG-MICRO-KC).
+  2. Only when the course has no module competencies at all: the module whose
+     course-module ID number equals the kc_id (course ENG-MICRO, id 10).
+
+A quiz's KCs always come from the questions it uses (what it measures); a
+quiz's own competency links are only checked against them. Questions keep
+their KC from the question category, because Moodle has no per-question
+competency. This is how a recommender finds what to show for a weak KC
+without any hand-maintained mapping.
 
 Nothing here reads any benchmark dataset: KC identity belongs to the course.
 """
@@ -36,7 +52,7 @@ import re
 from pathlib import Path
 
 from .config import QUESTION_KC_MAPPING_IS_OVERRIDE, t
-from .db import question_kc_mapping_file, write_csv
+from .db import question_kc_mapping_file, write_csv, write_json
 
 KC_CATALOG_COLUMNS = ["kc_id", "kc_name", "kc_dimension", "learning_objective"]
 QUESTION_KC_MAP_COLUMNS = [
@@ -61,6 +77,8 @@ KC_ACTIVITY_MAP_COLUMNS = [
 ROLE_LEARN = "learn"
 ROLE_PRACTICE = "practice"
 LEARN_MAPPING_SOURCE = "course_module_idnumber"
+COMPETENCY_MAPPING_SOURCE = "course_module_competency"
+MAPPING_REPORT_NAME = "kc_mapping_report.json"
 PRACTICE_MAPPING_SOURCE = "quiz_question_usage"
 MAPPING_SOURCE = "moodle_question_category"
 DEFAULT_DIMENSION = "general"
@@ -160,6 +178,30 @@ def _read_quiz_question_usage(cursor, course_id):
     return [(int(quiz_id), int(entry_id)) for quiz_id, entry_id in cursor.fetchall()]
 
 
+def _read_module_competencies(cursor, course_id):
+    """``{course_module_id: [competency idnumber, ...]}`` for the course's modules.
+
+    Competencies without an ID number cannot name a KC and are skipped.
+    """
+    cursor.execute(
+        f"""
+        SELECT mc.cmid, c.idnumber
+        FROM {t('competency_modulecomp')} mc
+        JOIN {t('competency')} c ON c.id = mc.competencyid
+        JOIN {t('course_modules')} cm ON cm.id = mc.cmid
+        WHERE cm.course = ?
+        ORDER BY mc.cmid, mc.sortorder, mc.id
+        """,
+        (course_id,),
+    )
+    links = {}
+    for cmid, idnumber in cursor.fetchall():
+        kc_id = (idnumber or "").strip()
+        if kc_id:
+            links.setdefault(int(cmid), []).append(kc_id)
+    return links
+
+
 def _mapping_version(pairs):
     """Short content hash: changes exactly when the question->KC mapping does."""
     digest = hashlib.sha256()
@@ -246,36 +288,58 @@ def build_kc_topic_map(question_map, usage, catalog_rows):
     ]
 
 
-def build_kc_activity_map(kc_catalog, question_map, usage, catalog_rows):
+def build_kc_activity_map(kc_catalog, question_map, usage, catalog_rows, module_kcs=None):
     """KC -> activity rows: learning resources and the quizzes that practise it.
 
-    Returns ``(rows, unknown_idnumbers)``. ``unknown_idnumbers`` lists
-    non-quiz course-module ID numbers that match no catalog KC, so a typo in a
-    resource's ID number is reported instead of silently ignored.
+    ``module_kcs`` is ``{course_module_id: [kc_id, ...]}`` from the module
+    competencies. When it is non-empty, learning resources come from it
+    (``mapping_source=course_module_competency``) and course-module ID numbers
+    are ignored; otherwise the ID-number convention applies.
+
+    Returns ``(rows, unknown)``. ``unknown`` lists non-quiz ID numbers (or
+    competency ID numbers on non-quiz modules) that match no catalog KC, so a
+    typo is reported instead of silently ignored. Dimension competencies
+    (``DIM-...``) are parents, not KCs, and are not reported.
     """
     known = {row["kc_id"] for row in kc_catalog}
     version = question_map[0]["mapping_version"] if question_map else ""
+    module_kcs = module_kcs or {}
     rows, unknown = [], []
+
+    def learn_row(kc_id, activity, source):
+        return {
+            "kc_id": kc_id,
+            "course_module_id": activity["course_module_id"],
+            "activity_type": activity["activity_type"],
+            "activity_name": activity.get("activity_name", ""),
+            "topic": activity.get("topic") or "",
+            "role": ROLE_LEARN,
+            "question_count": "",
+            "mapping_source": source,
+            "mapping_version": version,
+        }
+
     for activity in catalog_rows:
+        if activity.get("activity_type") == "quiz":
+            continue
+        if module_kcs:
+            try:
+                linked = module_kcs.get(int(activity.get("course_module_id")), [])
+            except (TypeError, ValueError):
+                linked = []
+            for kc_id in linked:
+                if kc_id in known:
+                    rows.append(learn_row(kc_id, activity, COMPETENCY_MAPPING_SOURCE))
+                elif not kc_id.startswith("DIM-"):
+                    unknown.append(kc_id)
+            continue
         idnumber = (activity.get("idnumber") or "").strip()
-        if not idnumber or activity.get("activity_type") == "quiz":
+        if not idnumber:
             continue
         if idnumber not in known:
             unknown.append(idnumber)
             continue
-        rows.append(
-            {
-                "kc_id": idnumber,
-                "course_module_id": activity["course_module_id"],
-                "activity_type": activity["activity_type"],
-                "activity_name": activity.get("activity_name", ""),
-                "topic": activity.get("topic") or "",
-                "role": ROLE_LEARN,
-                "question_count": "",
-                "mapping_source": LEARN_MAPPING_SOURCE,
-                "mapping_version": version,
-            }
-        )
+        rows.append(learn_row(idnumber, activity, LEARN_MAPPING_SOURCE))
 
     quiz_cm = {
         int(row["activity_id"]): row
@@ -305,6 +369,84 @@ def build_kc_activity_map(kc_catalog, question_map, usage, catalog_rows):
         )
     rows.sort(key=lambda row: (row["kc_id"], row["role"], str(row["course_module_id"])))
     return rows, sorted(set(unknown))
+
+
+def kc_of_module(kc_activity_map):
+    """``{course_module_id: kc_id}`` for modules that concern exactly one KC.
+
+    Used to put a KC on each logstore event. Modules with several KCs (a
+    mixed quiz) or none are left out: their events get no KC.
+    """
+    kcs = {}
+    for row in kc_activity_map:
+        try:
+            cmid = int(row["course_module_id"])
+        except (TypeError, ValueError):
+            continue
+        kcs.setdefault(cmid, set()).add(row["kc_id"])
+    return {cmid: next(iter(ids)) for cmid, ids in kcs.items() if len(ids) == 1}
+
+
+def build_mapping_report(kc_catalog, kc_activity_map, catalog_rows, module_kcs):
+    """Granularity and consistency checks of the KC <-> activity links."""
+    known = {row["kc_id"] for row in kc_catalog}
+    names = {
+        int(row["course_module_id"]): row.get("activity_name", "")
+        for row in catalog_rows
+        if str(row.get("course_module_id", "")).strip().isdigit()
+    }
+    quiz_kcs, lesson_kcs = {}, set()
+    for row in kc_activity_map:
+        if row["role"] == ROLE_PRACTICE:
+            if str(row["course_module_id"]).strip().isdigit():
+                quiz_kcs.setdefault(int(row["course_module_id"]), set()).add(row["kc_id"])
+        elif row["role"] == ROLE_LEARN:
+            lesson_kcs.add(row["kc_id"])
+    practised = set().union(*quiz_kcs.values()) if quiz_kcs else set()
+    sizes = [len(kcs) for kcs in quiz_kcs.values()]
+    mismatches = []
+    for cmid, kcs in sorted(quiz_kcs.items()):
+        if cmid not in module_kcs:
+            continue
+        linked = {kc for kc in module_kcs[cmid] if kc in known}
+        if linked != kcs:
+            mismatches.append(
+                {
+                    "course_module_id": cmid,
+                    "activity_name": names.get(cmid, ""),
+                    "competency_kcs": sorted(linked),
+                    "question_kcs": sorted(kcs),
+                }
+            )
+    linked_kcs = {kc for kcs in module_kcs.values() for kc in kcs}
+    return {
+        "activity_kc_source": (
+            COMPETENCY_MAPPING_SOURCE if module_kcs else LEARN_MAPPING_SOURCE
+        ),
+        "kcs": len(known),
+        "module_competency_links": sum(len(kcs) for kcs in module_kcs.values()),
+        "quizzes": len(quiz_kcs),
+        "single_kc_quizzes": sum(size == 1 for size in sizes),
+        "max_kcs_per_quiz": max(sizes, default=0),
+        "multi_kc_quizzes": [
+            {
+                "course_module_id": cmid,
+                "activity_name": names.get(cmid, ""),
+                "kc_ids": sorted(kcs),
+            }
+            for cmid, kcs in sorted(quiz_kcs.items())
+            if len(kcs) > 1
+        ],
+        "quizzes_without_competency": (
+            sorted(cmid for cmid in quiz_kcs if cmid not in module_kcs) if module_kcs else []
+        ),
+        "quiz_competency_mismatches": mismatches,
+        "competencies_without_questions": sorted(
+            kc for kc in linked_kcs if kc not in known and not kc.startswith("DIM-")
+        ),
+        "kcs_without_lesson": sorted(known - lesson_kcs),
+        "kcs_without_quiz": sorted(known - practised),
+    }
 
 
 def _catalog_from_override(mapping_file):
@@ -340,8 +482,9 @@ def collect_course_mappings(
     mapping_file=None,
     use_override=QUESTION_KC_MAPPING_IS_OVERRIDE,
 ):
-    """Write kc_catalog / question->KC / KC->topic CSVs and return their rows.
+    """Write the KC catalog, the maps and the mapping report.
 
+    Returns ``(kc_catalog, question_map, kc_topic_map, kc_activity_map)``.
     With ``use_override`` (``MOODLE_QUESTION_KC_MAPPING`` set), the curated
     crosswalk file is the source of truth and is never rewritten.
     """
@@ -364,20 +507,39 @@ def collect_course_mappings(
                 "without an idnumber and are not mapped to a KC."
             )
     kc_topic_map = build_kc_topic_map(question_map, usage, catalog_rows)
+    module_kcs = _read_module_competencies(cursor, course_id)
     kc_activity_map, unknown_idnumbers = build_kc_activity_map(
-        kc_catalog, question_map, usage, catalog_rows
+        kc_catalog, question_map, usage, catalog_rows, module_kcs
     )
+    report = build_mapping_report(kc_catalog, kc_activity_map, catalog_rows, module_kcs)
     write_csv("kc_catalog.csv", kc_catalog, KC_CATALOG_COLUMNS)
     write_csv("kc_topic_map.csv", kc_topic_map, KC_TOPIC_MAP_COLUMNS)
     write_csv("kc_activity_map.csv", kc_activity_map, KC_ACTIVITY_MAP_COLUMNS)
+    write_json(MAPPING_REPORT_NAME, report)
     if unknown_idnumbers:
         print(
-            "WARNING: activities have ID numbers that match no KC: "
+            "WARNING: activities have ID numbers or competencies that match no KC: "
             f"{unknown_idnumbers[:10]}"
         )
     print(
         f"Course mappings: {len(kc_catalog):,} KCs, {len(question_map):,} mapped "
         f"questions, {len(kc_topic_map):,} KC-topic links, "
-        f"{sum(row['role'] == ROLE_LEARN for row in kc_activity_map):,} KC learning resources."
+        f"{sum(row['role'] == ROLE_LEARN for row in kc_activity_map):,} KC learning resources "
+        f"(from {report['activity_kc_source']})."
     )
-    return kc_catalog, question_map, kc_topic_map
+    print(
+        f"  Granularity: {report['single_kc_quizzes']} of {report['quizzes']} quizzes test "
+        f"one KC (max {report['max_kcs_per_quiz']} KCs per quiz)."
+    )
+    if report["quiz_competency_mismatches"]:
+        print(
+            f"WARNING: {len(report['quiz_competency_mismatches'])} quizzes are linked to "
+            "competencies other than the KCs of their questions; see "
+            f"{MAPPING_REPORT_NAME}."
+        )
+    if report["quizzes_without_competency"]:
+        print(
+            f"WARNING: {len(report['quizzes_without_competency'])} quizzes have no "
+            "competency although the course uses module competencies."
+        )
+    return kc_catalog, question_map, kc_topic_map, kc_activity_map

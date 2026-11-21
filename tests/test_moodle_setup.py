@@ -73,6 +73,43 @@ def test_validation_requires_enough_questions_per_kc(course_copy):
     assert "KC001: 0 question(s), need at least 4" in _problems(course_copy)
 
 
+def test_kc_layout_is_the_default_microlearning_course():
+    spec = content.build_spec()
+
+    assert spec["layout"] == "kc"
+    assert spec["shortname"] == "ENG-MICRO-KC"
+    assert spec["kc_framework_idnumber"] == content.KC_FRAMEWORK_IDNUMBER
+    per_kc = {}
+    for question in spec["questions"]:
+        per_kc[question["kc_id"]] = per_kc.get(question["kc_id"], 0) + 1
+    # Each KC's questions are its whole check quiz: 4-5 items.
+    assert content.MIN_QUESTIONS_PER_KC <= min(per_kc.values())
+    assert max(per_kc.values()) <= content.MAX_QUESTIONS_PER_KC
+
+
+def test_dimension_layout_keeps_course_10_unchanged():
+    spec = content.build_spec(layout="dimension")
+    kc_spec = content.build_spec(layout="kc")
+
+    assert (spec["shortname"], spec["fullname"]) == ("ENG-MICRO", "English Microlearning")
+    # Same content; only the layout and the course names differ.
+    for key in ("units", "kcs", "questions", "lessons", "pass_fraction", "dimensions"):
+        assert spec[key] == kc_spec[key]
+    with pytest.raises(ValueError, match="Unknown course layout"):
+        content.build_spec(layout="unit")
+
+
+def test_kc_layout_rejects_a_check_quiz_longer_than_five_items(course_copy):
+    for number in range(6):
+        _append(course_copy, f"KC001 | Extra stem number {number}? | a{number} | b | c | d")
+    catalog, questions = content.load_catalog(course_copy), content.load_questions(course_copy)
+
+    kc_problems = content.validate(catalog, questions, layout="kc")
+    assert any(p.startswith("KC001:") and "at most 5" in p for p in kc_problems)
+    # The mixed-quiz layout has no upper bound.
+    assert not any("at most" in p for p in content.validate(catalog, questions, layout="dimension"))
+
+
 def test_validation_rejects_unknown_dimension(course_copy):
     path = course_copy / "kc_catalog.csv"
     with path.open(newline="", encoding="utf-8-sig") as source:
@@ -158,16 +195,21 @@ def test_plan_manifest_reaches_the_training_gate(tmp_path, capsys):
 def test_dry_run_does_not_touch_moodle(monkeypatch, tmp_path, capsys):
     calls = []
 
+    shortnames = []
+
     def fake_run_php(script, *args):
         calls.append(script)
+        shortnames.append(args[0])
         return {"course_id": 9, "startdate": 1_700_000_000, "quizzes": _quizzes()}
 
     monkeypatch.setattr(cli.docker, "run_php", fake_run_php)
-    plan_file = tmp_path / "plan.json"
+    # A freshly built course's workspace has no data/ folder yet.
+    plan_file = tmp_path / "new_workspace" / "data" / "plan.json"
     cli.main(["simulate-learners", "--learners", "5", "--dry-run", "--plan-out", str(plan_file),
               "--data-dir", str(tmp_path)])
 
     assert calls == ["export_structure.php"]
+    assert shortnames == ["ENG-MICRO-KC"]
     saved = json.loads(plan_file.read_text())
     assert len(saved["learners"]) == 5 and saved["manifest"]["simulated"] is True
     assert not (tmp_path / engine_config.PLAN_MANIFEST_NAME).exists()

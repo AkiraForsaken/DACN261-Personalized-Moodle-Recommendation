@@ -52,8 +52,18 @@ its KCs through two Moodle conventions, which the collector reads:
 
 - each question category with an **ID number** is a KC (`kc_id`); its parent
   category is the KC's **dimension** (grammar, vocabulary, ...);
-- optionally, an activity whose **ID number** is a `kc_id` is that KC's
-  learning resource, so a weak KC can lead straight to its lesson.
+- an activity linked to a KC's **competency** (course-module competency,
+  competency ID number = `kc_id`) is that KC's learning resource, so a weak
+  KC can lead straight to its lesson. A course without module competencies
+  may instead give the activity the `kc_id` as its **ID number** (the older
+  course ENG-MICRO, id 10).
+
+The microlearning course ENG-MICRO-KC keeps **one activity = one KC**: each
+KC has a lesson and a 4-5 question check quiz on that KC alone, so a failed
+quiz points at one KC. Knowledge tracing itself works per question in both
+layouts (every question has one KC); the layout matters for the quiz-level
+signals (pass/fail, "revise what after a failed quiz"). The collector reports
+the granularity in `kc_mapping_report.json`.
 
 Details: [learner_model/docs/mapping_documentation.md](learner_model/docs/mapping_documentation.md).
 

@@ -18,7 +18,15 @@ from .events import (
 from .sessions import assign_sessions, summarize_sessions
 
 
-def collect_learning_events(cursor, course_id, catalog_rows, user_filter):
+def collect_learning_events(cursor, course_id, catalog_rows, user_filter, kc_by_cmid=None):
+    """Write learning_events.csv and learning_sessions.csv.
+
+    ``kc_by_cmid`` (``{course_module_id: kc_id}``, modules with exactly one KC,
+    from the module competencies or the course conventions) adds a ``kc_id``
+    column: the logstore event joined to its KC. Events on modules with
+    several KCs or none get an empty ``kc_id``.
+    """
+    kc_by_cmid = kc_by_cmid or {}
     context_index = load_context_index(cursor, course_id)
     resolvers = build_object_resolvers(cursor, course_id, catalog_rows)
     valid_cmids = {row["course_module_id"] for row in catalog_rows}
@@ -108,6 +116,7 @@ def collect_learning_events(cursor, course_id, catalog_rows, user_filter):
                 ),
                 "timestamp": unix_to_local(timecreated),
                 "timestamp_unix": timecreated,
+                "kc_id": kc_by_cmid.get(int(cmid), "") if cmid not in (None, "") else "",
                 # internal only, used for the session summary
                 "_topic": topic_by_cmid.get(cmid, ""),
                 "_activity_type": type_by_cmid.get(cmid, ""),
@@ -146,6 +155,7 @@ def collect_learning_events(cursor, course_id, catalog_rows, user_filter):
             "session_id",
             "session_event_seq",
             "is_session_start",
+            "kc_id",
         ],
     )
 

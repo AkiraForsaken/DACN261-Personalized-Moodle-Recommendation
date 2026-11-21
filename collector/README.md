@@ -51,13 +51,14 @@ Written to the course workspace, `courses/<site>/<course_id>/data/`, unless
 | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | `learner_roster.csv`                 | Active enrolled participants, including new learners; `is_simulated` marks `SIM-` accounts        |
 | `activity_catalog.csv`               | Course modules -> topic + sequence; `pass_fraction` is a quiz's pass mark as a share of its grade |
-| `learning_events.csv`                | Filtered, context-resolved, session-tagged events                                                 |
+| `learning_events.csv`                | Filtered, context-resolved, session-tagged logstore events; `kc_id` when the module has one KC    |
 | `learning_sessions.csv`              | One row per continuous learning session                                                           |
 | `quiz_attempts.csv`                  | Finished non-preview attempts, normalized, with duration                                          |
 | `kc_catalog.csv`                     | Course Knowledge Components (from question categories)                                            |
 | `moodle_question_kc_map.csv`         | Question-bank entry -> KC (versioned)                                                             |
 | `kc_topic_map.csv`                   | KC -> course topic (from quiz usage)                                                              |
-| `kc_activity_map.csv`                | KC -> learning resource (course-module ID number = `kc_id`) and practice quizzes                  |
+| `kc_activity_map.csv`                | KC -> learning resource (module competency, else course-module ID number) and practice quizzes    |
+| `kc_mapping_report.json`             | Source of the activity links; KCs per quiz; competency vs question disagreements                  |
 | `question_answer_events.csv`         | Graded item responses with an explicit item -> KC mapping                                         |
 | `question_answer_mapping_report.csv` | Mapped / unmapped KT response counts                                                              |
 | `course_modules_completion.csv`      | Activity completion states (may be empty)                                                         |
@@ -73,6 +74,19 @@ during the run is newer than the export.
   question category with an idnumber is a KC and its parent category is the KC
   dimension (`collect_course_mappings.py`). `MOODLE_QUESTION_KC_MAPPING` may
   point at a hand-curated crosswalk instead.
+- An activity's KC comes from Moodle's **course-module competencies**
+  (`competency_modulecomp`; competency ID number = `kc_id`), the convention of
+  the one-KC-per-activity course ENG-MICRO-KC. Only in a course without any
+  module competency (ENG-MICRO, id 10) does the older rule apply: a non-quiz
+  module whose ID number is a `kc_id`. A quiz's KCs always come from its
+  questions; its competency links are only checked against them
+  (`kc_mapping_report.json`). Moodle has no per-question competency, so the
+  question category stays the question's KC.
+- Mappings are collected **before** the events, so each logstore event gets
+  the `kc_id` of its module when the module concerns exactly one KC (empty for
+  a mixed quiz, an overview page or an unmapped module). Per-question
+  correctness never comes from the logstore (it holds none); it comes from
+  `question_attempts` (`question_answer_events.csv`).
 - Question responses use one row per completed, graded item attempt. Questions
   without a KC are counted and excluded rather than guessed from labels.
 - Partial credit is kept as a raw fraction and converted to binary correctness

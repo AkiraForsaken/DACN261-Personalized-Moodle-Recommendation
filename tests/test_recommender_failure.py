@@ -259,3 +259,49 @@ def test_view_history_respects_the_build_cutoff(tmp_path):
     state = learner.activities[LESSON_C]
     assert state.view_times == (100.0,)  # the later view is after the cutoff
     assert state.attempts == ((120.0, False),)
+
+
+# ------------------------------------- one KC per activity (course ENG-MICRO-KC)
+def test_single_kc_check_quizzes_send_a_failure_straight_to_that_kcs_lesson():
+    """Mixed quiz 1 split into one check per KC, links as the collector writes them
+    from module competencies: failing KC-A's check concerns KC-A only."""
+    from recommender.course import build_course_graph
+    from recommender.rules import remediation_candidates
+    from tests.test_recommender import KC_NAMES, _catalog
+
+    check_a, check_b = QUIZ_1, 99
+    catalog = _catalog()
+    extra = catalog[catalog["course_module_id"].eq(QUIZ_1)].assign(
+        course_module_id=check_b, activity_name="Check: Topic B",
+        sequence=catalog["sequence"].max() + 1,
+    )
+    links = pd.DataFrame(
+        [
+            ("KC-A", LESSON_A, "learn", None, "course_module_competency"),
+            ("KC-B", LESSON_B, "learn", None, "course_module_competency"),
+            ("KC-A", check_a, "practice", 4, "quiz_question_usage"),
+            ("KC-B", check_b, "practice", 5, "quiz_question_usage"),
+        ],
+        columns=["kc_id", "course_module_id", "role", "question_count", "mapping_source"],
+    )
+    course = build_course_graph(pd.concat([catalog, extra], ignore_index=True), links, KC_NAMES)
+    assert course.kcs_of_quiz[check_a] == ["KC-A"] and course.kcs_of_quiz[check_b] == ["KC-B"]
+
+    learner = _learner(
+        activities={
+            check_a: ActivityState("failed", last_attempt=300, attempt_count=1, best_score=0.5,
+                                   pass_fraction=0.7),
+            LESSON_B: ActivityState("completed", last_viewed=400, view_times=(400,)),
+        },
+        kcs={
+            "KC-A": KCState(4, 0.5, 0.5, 300, "evidence_based_concern"),
+            "KC-B": KCState(5, 0.4, 0.5, 350, "evidence_based_concern"),
+        },
+    )
+    codes = [(c.module_id, c.reason_code, c.kc_id) for c in remediation_candidates(learner, course, 0.6)]
+
+    assert (LESSON_A, schemas.REVISE_BEFORE_RETRY, "KC-A") in codes
+    # KC-B's lesson was read after its last answer: practise in KC-B's own check,
+    # not in a quiz that also tests KC-A.
+    assert (check_b, schemas.PRACTICE_WEAK_KC, "KC-B") in codes
+    assert all(kc != "KC-B" for module, _, kc in codes if module == check_a)

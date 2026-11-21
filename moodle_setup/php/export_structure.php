@@ -5,7 +5,9 @@
 //
 // quizzes   every quiz in course order: its cmid, pass mark, slots, and each
 //           slot's question-bank entry and KC (ID number of its category)
-// lessons   kc_id -> cmid of the page whose course-module ID number is the KC
+// lessons   kc_id -> cmid of the KC's lesson page: the page linked to the KC's
+//           competency (competency ID number = kc_id), or, in a course
+//           without module competencies, the page whose ID number is the KC
 // overviews section number -> cmid of the first other page in the section
 //           (the unit overview)
 
@@ -14,12 +16,31 @@ require(__DIR__ . '/lib.php');
 $course = setup_get_course($argv[1] ?? '');
 $modinfo = get_fast_modinfo($course);
 $quizzes = $lessons = $overviews = [];
+// cmid -> ID numbers of the competencies linked to the module.
+$modulekcs = [];
+$links = $DB->get_recordset_sql(
+    "SELECT mc.id, mc.cmid, c.idnumber
+       FROM {competency_modulecomp} mc
+       JOIN {competency} c ON c.id = mc.competencyid
+       JOIN {course_modules} cm ON cm.id = mc.cmid
+      WHERE cm.course = ?
+   ORDER BY mc.cmid, mc.sortorder, mc.id",
+    [$course->id]
+);
+foreach ($links as $link) {
+    $modulekcs[(int) $link->cmid][] = $link->idnumber;
+}
+$links->close();
+$usecompetencies = !empty($modulekcs);
 foreach ($modinfo->get_sections() as $sectionnumber => $cmids) {
     foreach ($cmids as $cmid) {
         $cm = $modinfo->get_cm($cmid);
         if ($cm->modname === 'page') {
-            if ($cm->idnumber !== null && $cm->idnumber !== '') {
-                $lessons[$cm->idnumber] = (int) $cm->id;
+            $kcid = $usecompetencies
+                ? (count($modulekcs[(int) $cm->id] ?? []) === 1 ? $modulekcs[(int) $cm->id][0] : null)
+                : (($cm->idnumber !== null && $cm->idnumber !== '') ? $cm->idnumber : null);
+            if ($kcid !== null) {
+                $lessons[$kcid] = $lessons[$kcid] ?? (int) $cm->id;   // First in course order.
             } else if (!isset($overviews[$sectionnumber])) {
                 $overviews[$sectionnumber] = (int) $cm->id;
             }
