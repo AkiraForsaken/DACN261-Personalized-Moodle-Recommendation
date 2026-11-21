@@ -155,6 +155,7 @@ def run_table(artifacts_dir: Path, models: list[str]) -> pd.DataFrame:
                     "train_seconds": s["train_seconds"],
                     "seconds_per_epoch": round(s["train_seconds"] / epochs, 2) if epochs else None,
                     "n_params": s.get("n_params"),
+                    "torch_version": s.get("torch_version"),
                 }
             )
     return pd.DataFrame(rows)

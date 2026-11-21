@@ -356,6 +356,7 @@ SEEDS = [42, 43, 44]
 TRAIN_MODELS = ["dkvmn", "saint"]               # models to train; finished runs are reused anyway
 EVAL_MODELS = ["dkt", "sakt", "akt", "dkvmn", "saint"]
 TUNE_MODELS = []                                # e.g. ["dkvmn", "saint"] for english_bench
+EVAL_FROM_DUMPS = ["dkt", "sakt", "akt"] if DATASET == "ednet_kt1" else []   # EdNet run-1 checkpoints were not kept: score their saved predictions
 EPOCHS = None                                   # None = configured 50 (early stop after 10 flat epochs)
 DRY_RUN = True                                  # True: show status only; set False to train"""),
     md("## 2. Environment"),
@@ -397,7 +398,8 @@ else:
     before = fingerprint()
     env = dict(os.environ, PY=PY, DATASET=DATASET, SIZES=" ".join(map(str, SIZES)),
                SEEDS=" ".join(map(str, SEEDS)), TRAIN_MODELS=" ".join(TRAIN_MODELS),
-               EVAL_MODELS=" ".join(EVAL_MODELS), TUNE_MODELS=" ".join(TUNE_MODELS))
+               EVAL_MODELS=" ".join(EVAL_MODELS), TUNE_MODELS=" ".join(TUNE_MODELS),
+               EVAL_FROM_DUMPS=" ".join(EVAL_FROM_DUMPS))
     if EPOCHS:
         env["EPOCHS"] = str(EPOCHS)
     log = BENCH / f"run_{DATASET}_{time.strftime('%Y%m%d_%H%M%S')}.log"
@@ -488,7 +490,7 @@ pbc = pd.DataFrame(rows)
 display(pbc)
 ru.save_table(pbc[["learners"] + WANT[:4]], "ednet_paired_by_cohort",
               "Paired AUC differences between deep models by cohort size (learner bootstrap, 95\\\\% interval)",
-              "tab:ednet-paired-by-cohort", size="footnotesize")'''),
+              "tab:ednet-paired-by-cohort", size="scriptsize")'''),
     md("## 4. Calibration (reliability, mean of 3 seeds)"),
     code('''kt = BENCH / f"ednet_kt1_{MAIN}/kt"
 have_pykt = (kt / "pykt/test_sequences.csv").exists()
@@ -517,13 +519,18 @@ for n in SIZES:
     if art.exists():
         t = analysis.run_table(art, M); t.insert(0, "learners", n); rows.append(t)
 runs = pd.concat(rows, ignore_index=True)
+# PyTorch CUDA build recorded in run_summary.json -> machine (colab_environment.json: T4 used cu130)
+GPU_OF_BUILD = {"cu130": "T4", "cu126": "1070 Ti"}
 cost = runs.groupby(["learners", "model"]).agg(
     epochs=("epochs_run", "mean"), best_epoch=("best_epoch", "mean"),
     s_per_epoch=("seconds_per_epoch", "mean"), minutes_per_run=("train_seconds", lambda s: s.mean() / 60),
-    params=("n_params", "first")).reset_index()
+    params=("n_params", "first"),
+    GPU=("torch_version", lambda v: " + ".join(sorted({GPU_OF_BUILD.get(str(x).rsplit("+", 1)[-1], str(x)) for x in v})))).reset_index()
 display(cost.round(2))
-ru.save_table(cost[cost["learners"].isin([MAIN, 20000])].round(2), "ednet_cost",
-              "Training cost per run (mean of 3 seeds; T4 GPU unless noted)", "tab:ednet-cost", digits=1)
+ru.save_table(cost[cost["learners"].isin([MAIN, 20000])].round(2).rename(columns={
+                  "best_epoch": "best", "s_per_epoch": "s/epoch", "minutes_per_run": "min/run"}), "ednet_cost",
+              "Training cost per run (mean of 3 seeds)", "tab:ednet-cost", digits=1, size="footnotesize",
+              note="GPU from each run's recorded PyTorch build: T4 = Colab Tesla T4, 1070 Ti = local GTX 1070 Ti. Times on different GPUs are not comparable.")
 fig, ax = plt.subplots(figsize=(8, 4))
 for m in M:
     log = BENCH / f"ednet_kt1_{MAIN}/kt/artifacts/{m}/seed42/train.log"
