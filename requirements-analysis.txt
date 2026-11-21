@@ -1,0 +1,8 @@
+# Analysis notebooks of Chapter 4 (knowledge_tracing/notebooks/10-15), on top of .venv-kt
+# (torch + pykt-toolkit==0.0.38). CPU only.
+matplotlib>=3.8
+seaborn>=0.13
+jupyter
+nbformat>=5.9
+nbconvert>=7.0
+ipykernel

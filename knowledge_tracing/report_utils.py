@@ -1,0 +1,183 @@
+"""
+Shared helpers for the Chapter 4 notebooks (knowledge_tracing/notebooks/1x_*.ipynb).
+
+* ``setup()`` finds the repository locally, or on Colab unpacks the bundle
+  from Drive and links the benchmark folders that the GPU runs wrote there.
+* ``save_fig`` / ``save_table`` write every figure (PNG, 200 dpi) and every
+  LaTeX table fragment to data/benchmarks/report/, so the thesis \\input's
+  generated files and no number is copied by hand.
+* ``sync_to_thesis()`` copies the report folder into the LaTeX project
+  (local runs only).
+
+Nothing here writes to knowledge_tracing/configs/ or knowledge_tracing/artifacts/.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+import zipfile
+from pathlib import Path
+
+DRIVE_ROOT = Path("/content/drive/MyDrive/ednet_kt1")
+COLAB_REPO = Path("/content/ednet")
+THESIS_DIR = Path("thesis_docs/reports/DACN_HK261")
+MODELS = ["dkt", "sakt", "akt", "dkvmn", "saint"]
+MODEL_LABEL = {"dkt": "DKT", "sakt": "SAKT", "akt": "AKT", "dkvmn": "DKVMN", "saint": "SAINT"}
+
+ROOT: Path | None = None
+
+
+def in_colab() -> bool:
+    return "google.colab" in sys.modules
+
+
+def setup() -> Path:
+    """Return the repository root and make it the working directory."""
+    global ROOT
+    if in_colab():
+        from google.colab import drive  # type: ignore
+
+        drive.mount("/content/drive")
+        if not (COLAB_REPO / "knowledge_tracing").exists():
+            import time
+
+            with zipfile.ZipFile(DRIVE_ROOT / "ednet_colab_bundle.zip") as zf:
+                for info in zf.infolist():  # keep timestamps: the runner compares mtimes
+                    path = zf.extract(info, COLAB_REPO)
+                    mtime = time.mktime(info.date_time + (0, 0, -1))
+                    os.utime(path, (mtime, mtime))
+        # Results of the GPU runs (and the report folder) live on Drive.
+        bench = COLAB_REPO / "data" / "benchmarks"
+        if bench.exists() and not bench.is_symlink():
+            shutil.rmtree(bench)
+        if not bench.exists():
+            (DRIVE_ROOT / "data" / "benchmarks").mkdir(parents=True, exist_ok=True)
+            bench.symlink_to(DRIVE_ROOT / "data" / "benchmarks", target_is_directory=True)
+        root = COLAB_REPO
+    else:
+        root = Path.cwd().resolve()
+        while not (root / "knowledge_tracing").is_dir():
+            if root.parent == root:
+                raise SystemExit("Run the notebook inside the repository.")
+            root = root.parent
+    os.chdir(root)
+    for p in (root, root / "knowledge_tracing"):
+        if str(p) not in sys.path:
+            sys.path.insert(0, str(p))
+    ROOT = root
+    return root
+
+
+def report_dir() -> Path:
+    d = Path("data/benchmarks/report")
+    (d / "figures").mkdir(parents=True, exist_ok=True)
+    (d / "tables").mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def ednet_bench_dir() -> Path:
+    """Local five-model runs if present, else the exported Colab results."""
+    local = Path("data/benchmarks")
+    if (local / "ednet_kt1_5000/kt/artifacts/evaluation/test_comparison.csv").exists():
+        return local
+    return Path("data/colab/ednet_kt1_results/benchmarks")
+
+
+def style():
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.15)
+    plt.rcParams.update({"figure.dpi": 110, "savefig.bbox": "tight"})
+
+
+def save_fig(fig, name: str) -> None:
+    path = report_dir() / "figures" / f"{name}.png"
+    fig.savefig(path, dpi=200)
+    print(f"figure -> {path}")
+
+
+_TEX_ESCAPE = {"\\": r"\textbackslash{}", "&": r"\&", "%": r"\%", "$": r"\$",
+               "#": r"\#", "_": r"\_", "{": r"\{", "}": r"\}", "~": r"\textasciitilde{}",
+               "^": r"\textasciicircum{}"}
+
+
+def tex_escape(text) -> str:
+    return "".join(_TEX_ESCAPE.get(ch, ch) for ch in str(text))
+
+
+def _fmt(v, digits: int) -> str:
+    """Integers (and whole floats >= 10) with thousands separators; other floats to ``digits``."""
+    import math
+
+    try:
+        import numpy as np
+
+        if isinstance(v, np.integer):
+            v = int(v)
+        elif isinstance(v, np.floating):
+            v = float(v)
+        elif isinstance(v, np.bool_):
+            v = bool(v)
+    except ImportError:
+        pass
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    if isinstance(v, float):
+        if math.isnan(v):
+            return "--"
+        if v.is_integer() and abs(v) >= 10:
+            v = int(v)
+        else:
+            return f"{v:,.{digits}f}".replace(",", "{,}")
+    if isinstance(v, int):
+        return f"{v:,}".replace(",", "{,}")
+    return tex_escape(v)
+
+
+def save_table(df, name: str, caption: str, label: str, digits: int = 4,
+               align: str | None = None, note: str | None = None, size: str = "small") -> None:
+    """Write a booktabs table environment the thesis can \\input."""
+    cols = list(df.columns)
+    align = align or ("l" + "r" * (len(cols) - 1))
+    lines = [
+        "% generated by knowledge_tracing/report_utils.py -- do not edit by hand",
+        r"\begin{table}[htbp]",
+        r"\centering",
+        rf"\caption{{{caption}}}",
+        rf"\label{{{label}}}",
+        rf"\{size}",
+        r"\setlength{\tabcolsep}{4pt}",
+        rf"\begin{{tabular}}{{{align}}}",
+        r"\toprule",
+        " & ".join(rf"\textbf{{{tex_escape(c)}}}" for c in cols) + r" \\",
+        r"\midrule",
+    ]
+    for row in df.itertuples(index=False):
+        lines.append(" & ".join(_fmt(v, digits) for v in row) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    if note:
+        lines.append(rf"\caption*{{\footnotesize {note}}}")
+    lines.append(r"\end{table}")
+    path = report_dir() / "tables" / f"{name}.tex"
+    path.write_text("\n".join(lines) + "\n")
+    df.to_csv(path.with_suffix(".csv"), index=False)
+    print(f"table  -> {path}")
+
+
+def sync_to_thesis() -> None:
+    """Copy generated figures/tables into the LaTeX project (local runs only)."""
+    if in_colab() or not THESIS_DIR.exists():
+        print("Thesis folder not found here: download data/benchmarks/report/ instead.")
+        return
+    src = report_dir()
+    for kind, dest in (("figures", THESIS_DIR / "figures" / "kt"), ("tables", THESIS_DIR / "tables" / "kt")):
+        dest.mkdir(parents=True, exist_ok=True)
+        n = 0
+        for f in (src / kind).iterdir():
+            if f.suffix in (".png", ".tex"):
+                shutil.copy2(f, dest / f.name)
+                n += 1
+        print(f"{n} {kind} -> {dest}")
