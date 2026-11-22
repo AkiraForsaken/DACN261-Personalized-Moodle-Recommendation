@@ -80,13 +80,32 @@ lesson to revise.
 ## Course content
 
 Edit the content in these files, not in Moodle (layout `kc` additionally
-requires at most 5 questions per KC, `check-content --layout kc`):
+requires at most 5 check questions per KC and a complete practice pool,
+`check-content --layout kc`):
 
 ```
-course/kc_catalog.csv        kc_id, unit, unit_name, dimension, kc_name, learning_objective
-course/questions/unitN.txt   kc_id | stem | correct option | wrong | wrong | wrong
-course/lessons/unitN.md      one lesson per KC (format below)
+course/kc_catalog.csv             kc_id, unit, unit_name, dimension, kc_name, learning_objective, cefr_level
+course/questions/unitN.txt        check questions: kc_id | difficulty | stem | correct option | wrong | wrong | wrong
+course/questions/pool/unitN.txt   practice pool (layout kc only), same format
+course/lessons/unitN.md           one lesson per KC (format below)
 ```
+
+`difficulty` is 1 (easy), 2 or 3 (hard), and `cefr_level` is A1-B2. Both are
+authored labels drafted with AI assistance (2026-11-22), not calibrated on
+learner data; review them before relying on them. Layout `dimension`
+(course 10) ignores difficulty, CEFR level and the pool, so its build spec is
+unchanged (pinned by a digest in `tests/test_moodle_setup.py`).
+
+Layout `kc` uses the pool for random questions only: a practice quiz per KC
+(2 questions), a check-in per unit (one per KC of the unit, before teaching),
+a review quiz from unit 2 (two earlier KCs per dimension) and a challenge
+quiz per KC (2 difficulty-3 questions). Each pool needs at least 4 questions
+per KC, every difficulty, and at least 2 of difficulty 3; a pool question
+never repeats a check question, so practice never shows a check answer. Each
+quiz's role is its course-module ID number (`CHECK-KC001`, `PRACTICE-KC001`,
+`CHECKIN-U3`, `REVIEW-U3`, `CHALLENGE-KC001`); check and pool questions share
+the KC's question category and are told apart by the tags `ml-check` /
+`ml-pool`, next to `ml-difficulty-N` and `ml-cefr-xx`.
 
 The correct option is always written first, and Moodle shuffles the options in
 each attempt. Reading questions carry their short passage in the stem. Writing

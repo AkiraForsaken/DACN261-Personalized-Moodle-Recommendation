@@ -25,8 +25,21 @@ def _write_temp_json(payload, name):
     return path
 
 
+# php/build_course.php does not yet read spec["quizzes"] (quiz roles, random
+# pool slots, tags). Until it does, it would put each KC's pool questions into
+# its check quiz, so building a spec that has quizzes is refused. Set to True
+# together with the build_course.php change (plan Phase 4).
+BUILD_SUPPORTS_QUIZ_ROLES = False
+
+
 def build_course(args):
     spec = content.build_spec(layout=args.layout)
+    if "quizzes" in spec and not BUILD_SUPPORTS_QUIZ_ROLES:
+        raise SystemExit(
+            f"Layout {args.layout} now has practice, check-in, review and challenge "
+            "quizzes, but php/build_course.php cannot build them yet. Nothing was "
+            "changed in Moodle. Use `check-content --layout kc` to validate the content."
+        )
     remote = docker.copy_in(_write_temp_json(spec, "course_spec.json"))
     result = docker.run_php(
         "build_course.php", remote, *(["--rebuild"] if args.rebuild else [])

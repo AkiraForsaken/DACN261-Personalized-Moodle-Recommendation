@@ -1,0 +1,50 @@
+# Practice pool, Unit 7 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC022 | 1 | Which sentence is correct? | I usually play chess on Sundays. | I play usually chess on Sundays. | Usually I chess play on Sundays. | I play chess on usually Sundays.
+KC022 | 2 | Put "rarely" in the correct place: "They go to the cinema." | They rarely go to the cinema. | They go rarely to the cinema. | Rarely they go to the cinema. | They go to rarely the cinema.
+KC022 | 3 | Which sentence is correct? | My friends are always late for the match. | My friends always are late for the match. | My friends are late always for the match. | Always my friends are late for the match.
+KC022 | 3 | Which question is correct? | How often do you go swimming? | How often you go swimming? | How often do you go to swimming? | How often are you go swimming?
+KC023 | 1 | Choose the correct form: "I like ___ to music." | listening | listen | listens | to listening
+KC023 | 2 | Choose the correct form: "We hope ___ the final this year." | to win | winning | win | to winning
+KC023 | 3 | Choose the correct form: "She finished ___ the book and then started a new one." | reading | to read | read | to reading
+KC023 | 3 | Which sentence is correct? | I'd rather stay at home than go to the party. | I'd rather staying at home than going to the party. | I'd rather to stay at home than to go to the party. | I'd rather stay at home than going to the party.
+KC024 | 1 | Choose the correct preposition: "My birthday is ___ May." | in | on | at | by
+KC024 | 2 | Choose the correct preposition: "The shop closes ___ midnight." | at | on | in | of
+KC024 | 3 | Choose the correct preposition: "The festival takes place ___ the morning of 1 August." | on | in | at | by
+KC024 | 3 | Which sentence is correct? | The museum is open from 9 am to 5 pm, but it is closed on Christmas Day. | The museum is open from 9 am to 5 pm, but it is closed in Christmas Day. | The museum is open at 9 am to 5 pm, but it is closed on Christmas Day. | The museum is open from 9 am at 5 pm, but it is closed at Christmas Day.
+KC044 | 1 | Which activity involves riding a bicycle? | Cycling | Sailing | Knitting | Baking
+KC044 | 2 | Sleeping in a tent outdoors as a holiday activity is called ___. | camping | hiking | climbing | fishing
+KC044 | 3 | Which hobby involves catching fish with a rod and line? | Angling | Rowing | Surfing | Sketching
+KC044 | 3 | Which activity is a team sport? | Volleyball | Jogging | Yoga | Knitting
+KC045 | 1 | What do players hit in golf? | A ball | A net | A racket | A puck
+KC045 | 2 | Where is a boxing match held? | In a ring | On a pitch | On a course | In a pool
+KC045 | 3 | Which piece of equipment protects a cyclist's head? | A helmet | Goggles | A glove | A whistle
+KC045 | 3 | In ice hockey, players hit a small flat disc called a ___. | puck | shuttlecock | bat | net
+KC046 | 1 | Where do you watch films on a big screen? | At the cinema | At the library | At the bank | At the gym
+KC046 | 2 | What is an "audience"? | The people who watch a performance | The actors | The stage | The tickets
+KC046 | 3 | What is a "premiere"? | The first public showing of a film or play | The last show of the season | A cheap ticket | A break in the middle of a play
+KC046 | 3 | What is an "interval" at the theatre? | A short break between parts of a performance | The main actor | The front row | The ticket price
+KC067 | 1 | Read the invitation: "Pool party! Sunday 2 pm at Leo's house." When is the party? | Sunday at 2 pm | Saturday at 2 pm | Sunday at 12 pm | Monday at 2 pm
+KC067 | 2 | Read the flyer: "Book Club. First Monday of every month, 7 pm, City Library. New members welcome." Where does the club meet? | At the City Library | At a cafe | At a member's house | At a bookshop
+KC067 | 3 | Read the invitation: "Dinner at 8. Please reply by Friday and tell us if you have any food allergies." What two things should guests do? | Reply by Friday and mention any allergies | Bring food and arrive at 7 | Call on Friday and bring a friend | Pay by Friday and arrive at 8
+KC067 | 3 | Read the flyer: "Film night. Tickets $5, members free. Doors open 30 minutes before the 7:30 pm film." When do the doors open? | 7:00 pm | 7:30 pm | 8:00 pm | 6:30 pm
+KC068 | 1 | Read the timetable: "Climbing wall: open daily 10:00-20:00." When does it close? | 20:00 | 10:00 | 18:00 | 22:00
+KC068 | 2 | Read the timetable: "Beginners' guitar: Mon 17:00. Advanced guitar: Wed 17:00." When is the beginners' class? | Monday at 17:00 | Wednesday at 17:00 | Monday at 7:00 | Wednesday at 7:00
+KC068 | 3 | Read the timetable: "Gym: Mon-Fri 6:00-22:00, Sat-Sun 8:00-20:00." You want to go on Saturday at 21:00. Is the gym open? | No | Yes | Only for members | Only on Sundays
+KC068 | 3 | Read the timetable: "Boat tours every 45 minutes from 10:00. Last tour 16:00." What time is the third tour? | 11:30 | 11:00 | 10:45 | 12:15
+KC069 | 1 | Read the guide: "Step 1: Wash the brushes. Step 2: Dry them." What do you do first? | Wash the brushes | Dry the brushes | Buy new brushes | Paint a picture
+KC069 | 2 | Read the guide: "Water the seeds every two days and keep them in a sunny place." How often should you water the seeds? | Every two days | Every day | Twice a day | Once a week
+KC069 | 3 | Read the guide: "Do not open the oven during the first 20 minutes, or the cake may sink." Why should you not open the oven early? | The cake may sink | The oven may break | The cake will burn | The cake will cook faster
+KC069 | 3 | Read the guide: "If the thread breaks, stop the machine, rethread the needle and start again." What should you do first when the thread breaks? | Stop the machine | Rethread the needle | Start again | Buy new thread
+KC091 | 1 | Which sentence is about a hobby? | I play the piano every evening. | My bus is late. | It is Monday. | The bank is closed.
+KC091 | 2 | Which sentence gives a reason for a hobby? | I go swimming because it keeps me fit. | I go swimming. | Swimming is in water. | The pool is big.
+KC091 | 3 | Which sentence describes a hobby with specific detail? | I have collected old coins for five years and now have over 300 from 20 countries. | I collect things. | Coins exist. | I like hobbies a lot.
+KC091 | 3 | Which sentence is written correctly? | I have been learning to dance salsa since last year. | I am learning to dance salsa since last year. | I have been learn to dance salsa since last year. | I learning to dance salsa since last year.
+KC092 | 1 | Which sentence invites someone? | Would you like to come to my party? | I have a party. | Parties are fun. | My party was good.
+KC092 | 2 | Which sentence gives the place of an event? | The picnic is at Green Park, next to the lake. | The picnic is fun. | The picnic is on Sunday. | Bring some food.
+KC092 | 3 | Which invitation is clear and complete? | Join us for a games night on Friday 12 May at 7 pm at my flat, 22 Hill Street. Let me know by Wednesday! | Games night soon, come! | Friday games. | Come to my flat sometime for games.
+KC092 | 3 | Which sentence politely tells guests what to bring? | It would be great if everyone could bring a snack to share. | Bring snacks or don't come. | Snacks. | You bring.
+KC093 | 1 | Which post describes a weekend? | We went to the beach on Saturday. | The beach. | Saturday is a day. | Beaches are sandy.
+KC093 | 2 | Which post uses the past tense correctly? | We watched a great film last night. | We watch a great film last night. | We watching a great film last night. | We have watch a great film last night.
+KC093 | 3 | Which post best summarises an event in one sentence? | Our charity run raised $2,000, and all 50 runners finished! | There was a run. | Running. | People ran and things happened.
+KC093 | 3 | Which short post says who, what and where? | I went kayaking with my cousins on Lake Ember this morning. | Kayaking! | This morning was nice. | My cousins are nice.

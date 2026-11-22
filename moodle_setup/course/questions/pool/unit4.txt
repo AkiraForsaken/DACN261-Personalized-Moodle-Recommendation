@@ -1,0 +1,50 @@
+# Practice pool, Unit 4 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC013 | 1 | Choose the correct modal: "Passengers ___ wear a seatbelt; it is the law." | must | might | could | would
+KC013 | 2 | Choose the correct form: "You ___ bring your own laptop; we provide one." | don't have to | mustn't | have to | must
+KC013 | 3 | Choose the correct form: "Visitors ___ take photos in the gallery; it is strictly forbidden." | mustn't | don't have to | needn't | might not
+KC013 | 3 | Which sentence is correct? | Last year we had to submit all articles by Monday. | Last year we must submitted all articles by Monday. | Last year we have to submit all articles by Monday. | Last year we musted submit all articles by Monday.
+KC014 | 1 | Choose the correct modal: "Take an umbrella; it ___ rain later." | might | must | mustn't | has to
+KC014 | 2 | Which sentence expresses a weak possibility? | The rumour could be true, but I doubt it. | The rumour is definitely true. | The rumour must be true. | The rumour has to be true.
+KC014 | 3 | Which sentence shows the strongest certainty? | The results must be wrong; the numbers don't add up. | The results might be wrong. | The results may be wrong. | The results could be wrong.
+KC014 | 3 | Choose the correct form: "Scientists say the new drug ___ help thousands of patients in future." | could | coulds | could to | can to
+KC015 | 1 | Choose the correct sentence. | I believe that the plan will work. | I believe the plan work will. | I am believe that the plan will work. | I believing that the plan will work.
+KC015 | 2 | Choose the correct form: "Most readers ___ that the article was too long." | felt | were feel | feeling | was felt
+KC015 | 3 | Which sentence frames a claim as the writer's own opinion? | I would argue that the new law is unfair. | The new law was passed in May. | The new law has ten sections. | The minister signed the new law.
+KC015 | 3 | Choose the correct sentence. | It is widely believed that exercise improves mood. | It widely believed that exercise improves mood. | It is widely believe that exercise improves mood. | It is widely believed exercise that improves mood.
+KC035 | 1 | Which phrase introduces your own opinion? | I think | For example | As a result | In addition
+KC035 | 2 | Complete the sentence: "___, the best part of the film was the music." | For me | Because of | Instead of | According to the film
+KC035 | 3 | Which phrase introduces someone else's view, not your own? | According to the author, | In my opinion, | Personally, | From my point of view,
+KC035 | 3 | Which sentence gives a personal opinion politely and tentatively? | I'm not sure, but it seems to me that the plan is too expensive. | The plan is too expensive, full stop. | Everyone knows the plan is too expensive. | It is a fact that the plan is too expensive.
+KC036 | 1 | Who writes news stories for a newspaper? | A journalist | A pilot | A cashier | A chef
+KC036 | 2 | What is a "subscription"? | A regular payment to receive a magazine or service | A single newspaper | A free sample | A news headline
+KC036 | 3 | What is a "correction" in a newspaper? | A notice that fixes a mistake in an earlier article | A new advert | A letter from a reader | A sports result
+KC036 | 3 | What does a "byline" show? | The name of the person who wrote the article | The date of the next issue | The price of the newspaper | The main headline of the day
+KC037 | 1 | Which word shows contrast? | but | and | so | also
+KC037 | 2 | Choose the best connector: "The camera is expensive. ___, it takes excellent photos." | However | Therefore | For example | Because
+KC037 | 3 | Choose the best connector: "___ the article was well researched, it was hard to read." | Although | However | Despite | Therefore
+KC037 | 3 | Choose the correct sentence. | Despite the rain, the festival was a success. | Despite it rained, the festival was a success. | Despite of the rain, the festival was a success. | Although the rain, the festival was a success.
+KC058 | 1 | Read: "Hooray! Our team finally won the cup!" What is the writer's tone? | Excited | Sad | Angry | Bored
+KC058 | 2 | Read: "The report lists the results of the 2023 survey in three tables." What is the tone? | Neutral | Furious | Humorous | Sentimental
+KC058 | 3 | Read: "Oh great, another 'improvement' that makes the app slower." What is the writer's tone? | Sarcastic | Grateful | Neutral | Admiring
+KC058 | 3 | Read: "While the plan has some merits, its costs are hard to justify." What is the writer's stance? | Mostly critical | Strongly in favour | Completely neutral | Very enthusiastic
+KC059 | 1 | Which sentence is a fact? | Water boils at 100 degrees Celsius at sea level. | Water is the nicest drink. | Everyone should drink more water. | Water tastes boring.
+KC059 | 2 | Which sentence is an opinion? | This is the most exciting city in Europe. | This city has two million people. | The city has a metro system. | The city was founded in 1200.
+KC059 | 3 | Read: "The museum, which opened in 2010, is the most beautiful building in town." Which part is a fact? | The museum opened in 2010. | The museum is the most beautiful building. | The building is beautiful. | The town is beautiful.
+KC059 | 3 | Which sentence presents an opinion as if it were a fact? | Clearly, online courses are better than classroom lessons. | Online courses started in the 1990s. | Many universities offer online courses. | Some students take online courses.
+KC060 | 1 | Read: "Our town needs a new library. The old one is too small for the growing number of readers." What is the main claim? | The town needs a new library. | The old library is beautiful. | Readers do not like books. | The town is getting smaller.
+KC060 | 2 | Read: "Cycling to work saves money and keeps you fit. More people should try it." What is the thesis? | More people should cycle to work. | Cycling is expensive. | Fitness is not important. | Cars are faster.
+KC060 | 3 | Read: "Some say homework is useless. However, short, focused homework helps students remember what they learn. Schools should keep it, but limit it." What is the writer's main point? | Schools should keep homework but limit it. | Homework is useless. | Students should have more homework. | Schools should ban homework.
+KC060 | 3 | Which sentence would best support the thesis "Cities should plant more trees"? | Trees lower summer temperatures and clean the air. | Trees can have different shapes. | Some people prefer flowers. | Cities have many buildings.
+KC082 | 1 | Which sentence states a clear opinion? | I strongly believe that school uniforms are a good idea. | School uniforms exist. | Some schools have uniforms. | Uniforms are clothes.
+KC082 | 2 | Which phrase makes a stance statement more formal? | It is my firm belief that | I reckon | Kinda think | Honestly lol
+KC082 | 3 | Which thesis statement is the most precise? | Cities should provide free public transport for students because it reduces traffic and costs. | Transport is a big topic with many sides. | Some people use buses and some use cars. | This essay is about transport.
+KC082 | 3 | Which sentence takes a position while showing awareness of the other side? | Although online news is fast, I believe printed newspapers are more reliable. | Online news is fast. | Printed newspapers exist. | News can be online or printed.
+KC083 | 1 | Choose the correct word: "___ it was late, we finished the report." | Although | Because | So | And
+KC083 | 2 | Choose the correct sentence. | Even though the tickets were expensive, the concert was sold out. | Even though the tickets were expensive, but the concert was sold out. | Even the tickets were expensive, the concert was sold out. | Even though of the tickets were expensive, the concert was sold out.
+KC083 | 3 | Choose the best way to join the ideas: "The phone is old. It still works well." | Although the phone is old, it still works well. | Because the phone is old, it still works well. | Although the phone is old, but it still works well. | The phone is old, although it still works well because.
+KC083 | 3 | Choose the correct sentence. | In spite of the bad weather, the match went ahead. | In spite the bad weather, the match went ahead. | In spite of the weather was bad, the match went ahead. | In spite of bad weather the match went ahead although.
+KC084 | 1 | Which sentence is a good conclusion for a review? | In conclusion, this is an excellent book for young readers. | This book has 200 pages. | The cover is blue. | I read it on a bus.
+KC084 | 2 | Choose the best concluding phrase: "___, I would give this film four stars out of five." | Overall | For instance | Firstly | Meanwhile
+KC084 | 3 | Which conclusion is balanced? | Although the plot is slow at times, the acting makes this series worth watching. | This series is perfect in every way. | This series is the worst thing ever made. | The series has ten episodes.
+KC084 | 3 | Which closing sentence tells the reader who would enjoy the product? | Anyone who loves cooking will find this app useful. | This app was released in May. | The app is free. | Apps are popular.

@@ -1,0 +1,50 @@
+# Practice pool, Unit 2 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC005 | 1 | Which greeting is appropriate for a formal letter to Dr Ana Ruiz? | Dear Dr Ruiz, | Hey Ana!! | Hiya Doc, | What's up, Ruiz?
+KC005 | 2 | Which title is correct for a woman when you do not know if she is married? | Ms | Mrs | Miss | Mister
+KC005 | 3 | Which closing matches the opening "Dear Sir or Madam," in British formal letters? | Yours faithfully, | Yours sincerely, | Love, | Cheers,
+KC005 | 3 | Which opening is correct for a formal email to Professor Mark Hill? | Dear Professor Hill, | Dear Professor Mark, | Dear Mr Professor Hill, | Dear Prof Mark Hill Sir,
+KC006 | 1 | Choose the correct form: "I ___ in three different countries." | have lived | has lived | have live | living
+KC006 | 2 | Choose the correct form: "He ___ for this company since 2019." | has worked | worked | works | is work
+KC006 | 3 | Choose the correct form: "She ___ to London twice, but she ___ there last year." | has been ... didn't go | has been ... hasn't gone | went ... hasn't gone | has gone ... didn't went
+KC006 | 3 | Which sentence is correct? | I have never used this software before. | I have never use this software before. | I has never used this software before. | I am never using this software before.
+KC007 | 1 | Which request is polite? | Could you help me with this form, please? | Help me with this form. | You help me now. | I want help with this form.
+KC007 | 2 | Complete the request: "Would you mind ___ the door?" | closing | to close | close | closed
+KC007 | 3 | Which request is the most polite? | Would you be able to send me the figures by Friday? | Can you send me the figures by Friday? | Send me the figures by Friday. | You will send me the figures by Friday.
+KC007 | 3 | Complete the request: "I was wondering ___ you could join the call." | if | that | what | so
+KC008 | 1 | Choose the passive form: "The email ___ yesterday." | was sent | sent | is send | was send
+KC008 | 2 | Choose the passive form: "The new office ___ next month." | will be opened | will opened | is opened by | will be open
+KC008 | 3 | Choose the correct status update: "The contract ___ yet." | hasn't been signed | hasn't signed | wasn't been signed | isn't signing
+KC008 | 3 | Rewrite in the passive: "Someone has cancelled the meeting." | The meeting has been cancelled. | The meeting has cancelled. | The meeting was been cancelled. | Someone has been cancelled the meeting.
+KC031 | 1 | Who leads a meeting? | The chair | The minutes | The agenda | The venue
+KC031 | 2 | What does it mean to "postpone" a meeting? | To move it to a later time | To cancel it forever | To start it early | To end it quickly
+KC031 | 3 | What does "AOB" mean at the end of a meeting agenda? | Any other business | All on board | Action on budget | Agenda of the boss
+KC031 | 3 | Which word completes the sentence? "Can we ___ the main points before we finish?" | recap | adjourn | attend | postpone
+KC032 | 1 | What is a "task"? | A piece of work that needs to be done | A holiday | A meeting room | A job title
+KC032 | 2 | What does "on track" mean in a project update? | Progressing as planned | Behind schedule | Cancelled | Over budget
+KC032 | 3 | What is the "scope" of a project? | The work and features the project includes | The money spent so far | The name of the client | The office where the team works
+KC032 | 3 | Which word completes the sentence? "We need to ___ the risks before we start." | assess | deliver | postpone | invoice
+KC052 | 1 | Which subject line is best for an email asking for a day off? | Request for leave on 3 June | Hi | Question | Stuff
+KC052 | 2 | An email subject starts with "RE:". What does this usually show? | It is a reply to an earlier email | It is urgent | It starts a new topic | It has an attachment
+KC052 | 3 | Which subject line best tells the reader that a decision is needed? | Decision needed: choose a supplier by Wednesday | Supplier | FYI: supplier news | Thanks for the supplier meeting
+KC052 | 3 | An email subject reads "FYI: new parking rules from Monday". What should the reader do? | Read it for information; no reply is needed | Reply urgently | Attend a meeting on Monday | Pay a parking fine
+KC053 | 1 | Read the memo: "The staff kitchen will be cleaned on Friday at 4 pm. Please remove your food by 3 pm." What should staff do? | Remove their food by 3 pm | Clean the kitchen | Eat in the kitchen at 4 pm | Bring food on Friday
+KC053 | 2 | Read the memo: "From 1 July, all visitors must sign in at reception and wear a badge." What changes on 1 July? | Visitors must sign in and wear a badge | Staff must wear a badge | Reception will close | Visitors are not allowed
+KC053 | 3 | Read the memo: "Team leaders: send holiday plans to HR by 10 May. Other staff: send them to your team leader by 3 May." When must other staff send their plans? | By 3 May | By 10 May | By 1 May | By 13 May
+KC053 | 3 | Read the memo: "The server update starts at 22:00 on Saturday and lasts four hours. Do not log in during this time." Until what time should you not log in? | 02:00 on Sunday | 22:00 on Saturday | 04:00 on Sunday | 18:00 on Saturday
+KC054 | 1 | "Dear Mr Patel, I am writing to inform you of a change to your order." What is the register? | Formal | Informal | Rude | Slang
+KC054 | 2 | Which phrase is informal? | Cheers for that! | I appreciate your assistance. | Thank you for your prompt reply. | Kind regards,
+KC054 | 3 | "We regret to inform you that your application was unsuccessful." What is the tone? | Polite but negative | Angry | Excited | Casual and friendly
+KC054 | 3 | Which sentence would be too informal for a message to a new client? | No worries, catch you later! | Please let me know if you have any questions. | I look forward to working with you. | Thank you for choosing our company.
+KC076 | 1 | Which opening sentence is professional? | I am writing to ask about your opening hours. | Yo, what are your hours? | Hours??? | Tell me your hours.
+KC076 | 2 | Which opening best introduces you to a new client? | My name is Sara Lin, and I am the new account manager for your company. | Me Sara, new manager. | I am a person who manages. | Hi, it's me again.
+KC076 | 3 | Which opening is best for a reply to a customer complaint? | Thank you for contacting us about the late delivery. | You are wrong about the delivery. | Deliveries are sometimes late. | Why did you write to us?
+KC076 | 3 | Which opening states its purpose most clearly? | I am writing to apply for the position of sales assistant advertised on your website. | I saw something on your website. | I am writing because of some reasons. | Your website is nice.
+KC077 | 1 | Which sentence refers to an attachment correctly? | I have attached the invoice. | I have attachment the invoice. | The invoice attaching. | I attach you invoice.
+KC077 | 2 | Complete the sentence: "Please find ___ the signed contract." | attached | attaching | attach | to attach
+KC077 | 3 | Which sentence is the most formal way to mention two attached files? | Please find attached the agenda and last month's minutes. | Here's the agenda and stuff. | Agenda + minutes attached lol. | I put files.
+KC077 | 3 | Complete the sentence: "The figures are shown in the table ___ to this email." | attached | attaching | attach | attachment
+KC078 | 1 | Which is a clear action item? | Book the meeting room for Monday. | The meeting room. | Monday is a day. | Rooms are useful.
+KC078 | 2 | Which action item says who does what and when? | Mark to send the slides to the client by Tuesday. | Slides should be sent. | Someone sends something. | The client likes slides.
+KC078 | 3 | Which bullet is the most concise version of "It would be good if someone could maybe check the figures soon"? | Check the figures by Thursday. | Someone could maybe check the figures soon. | Figures. | It would be good to check figures maybe.
+KC078 | 3 | Which list keeps all action items in the same form? | Print the handouts; Email the speakers; Order the coffee | Print the handouts; Emailing the speakers; Coffee order | The handouts are printed; Email the speakers; To order coffee | Printing handouts; Email the speakers; The coffee

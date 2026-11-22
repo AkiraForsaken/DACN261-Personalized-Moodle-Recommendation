@@ -1,0 +1,50 @@
+# Practice pool, Unit 3 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC009 | 1 | Choose the correct preposition: "The keys are ___ the table, on the floor." | under | on | between | across
+KC009 | 2 | Choose the correct preposition: "The car park is ___ the shopping centre, at the back." | behind | in front of | between | over
+KC009 | 3 | Which sentence is correct? | The cafe is on the corner of King Street and Hill Road. | The cafe is in the corner of King Street and Hill Road. | The cafe is at the corner between King Street. | The cafe is on corner of King Street and Hill Road.
+KC009 | 3 | Read: "The museum is opposite the park. The park is next to the station." Which statement is true? | The museum is across the street from the park. | The museum is next to the station. | The park is opposite the station. | The museum is inside the park.
+KC010 | 1 | Choose the correct preposition: "The children ran ___ the stairs to their bedroom." | up | across | through | along
+KC010 | 2 | Choose the correct preposition: "The ferry goes ___ the lake to the village on the other side." | across | through | along | into
+KC010 | 3 | Choose the correct preposition: "Go ___ the hill, and the station is at the bottom." | down | across | through | between
+KC010 | 3 | Which sentence describes the movement correctly? | Walk out of the station and into the square. | Walk out the station of and into the square. | Walk out of the station and onto into the square. | Walk off of the station and in the square.
+KC011 | 1 | Choose the correct form: "___ left after the bridge." | Turn | Turning | Turns | To turn
+KC011 | 2 | Which sentence is a correct instruction? | Keep going until you see the hospital. | You keeping going until you see the hospital. | Keeps going until you see the hospital. | To keep going until you see the hospital.
+KC011 | 3 | Which is a correct negative instruction? | Don't turn right at the lights; go straight on. | Not turn right at the lights; go straight on. | Doesn't turn right at the lights; go straight on. | No turning right at the lights; going straight on.
+KC011 | 3 | Choose the correct pair: "___ the main road, then ___ the first street on your left." | Cross ... take | Crossing ... take | Cross ... takes | Crosses ... taking
+KC012 | 1 | Choose the correct word: "Take the ___ turning on the right." | first | one | once | firstly
+KC012 | 2 | Choose the correct word: "It's the ___ house on the left, after the shop." | fourth | four | forth | fourly
+KC012 | 3 | You must turn into the third street on the left, and you have already passed two streets on the left. Which street do you take? | The next street on the left | The street after the next one on the left | The next street on the right | The third street on the right
+KC012 | 3 | Which direction is correctly formed? | Take the second exit, then the first right. | Take the two exit, then the one right. | Take second the exit, then first right the. | Take the second exits, then the first rights.
+KC033 | 1 | Where do you collect your suitcase after a flight? | At baggage claim | At the departure gate | At the check-in desk | At the ticket office
+KC033 | 2 | Where do you show your passport when you leave or enter a country? | At passport control | On the platform | At the luggage lockers | At the taxi rank
+KC033 | 3 | What is the "concourse" of a station? | The large open area where passengers walk and wait | The driver's cabin | The ticket price | The last carriage of the train
+KC033 | 3 | At an airport, what is a "connecting flight"? | A second flight you take to continue your journey | A flight that is cancelled | The first flight of the day | A flight for airline staff only
+KC034 | 1 | What is a "single" ticket? | A ticket for a journey in one direction | A ticket for one month | A ticket for two people | A free ticket
+KC034 | 2 | What does it mean to "book" a seat? | To reserve it in advance | To read on it | To cancel it | To pay a fine for it
+KC034 | 3 | What is a "non-refundable" ticket? | You cannot get your money back if you cancel | You can change it for free | It is cheaper at weekends | It includes a meal
+KC034 | 3 | What is "off-peak" travel? | Travelling at quieter times, usually with lower fares | Travelling at the busiest times | Travelling without a ticket | Travelling in first class only
+KC055 | 1 | Read the alert: "Bus 3 is not stopping at Main Street today. Use the stop on Bridge Road." Where can you catch Bus 3 today? | Bridge Road | Main Street | The bus station | Nowhere
+KC055 | 2 | Read the alert: "The bridge is closed to cars until Friday. Cyclists and walkers can still cross." You are cycling. Can you use the bridge? | Yes | No, it is closed to everyone | Only after Friday | Only by car
+KC055 | 3 | Read the alert: "The Red Line is closed between Station A and Station C. Take the shuttle bus from A to C, then continue on the Red Line." You travel from Station A to Station D. What should you do? | Take the shuttle to Station C, then the Red Line to Station D | Take the Red Line from Station A to Station D | Walk from Station A to Station D | Take the shuttle from Station A to Station D
+KC055 | 3 | Read the alert: "Line 1 trains will not stop at Park Station from 10:00 to 14:00." You need to get off at Park Station at 12:00. What should you do? | Find another way to reach Park Station | Take Line 1 as usual | Get off at Park Station at 12:00 | Wait until 10:00
+KC056 | 1 | Read the screen: "LH400 Munich 11:30 Gate D3 On time." When does the Munich flight leave? | 11:30 | 13:30 | 10:30 | 11:03
+KC056 | 2 | Read the screen: "Platform 5: 14:50 Leeds - Cancelled. Platform 6: 15:10 Leeds - On time." Which is the next train to Leeds that will run? | 15:10 from Platform 6 | 14:50 from Platform 5 | 15:10 from Platform 5 | 14:50 from Platform 6
+KC056 | 3 | Read the screen: "KL55 Amsterdam 18:05 Gate F2 - Gate changed to F9." Where should passengers for Amsterdam go? | Gate F9 | Gate F2 | Gate F5 | Any gate
+KC056 | 3 | Read the screen: "EK31 Dubai 21:40 Delayed - new time 23:10." How long is the delay? | 1 hour 30 minutes | 1 hour 10 minutes | 2 hours 30 minutes | 30 minutes
+KC057 | 1 | A map legend shows a red cross on a white square. What does it usually mean? | A hospital | A car park | A school | A bus stop
+KC057 | 2 | On a hiking map, a dotted green line is labelled "footpath". What can you do on it? | Walk | Drive a car | Take a train | Park your car
+KC057 | 3 | A transport map shows a white circle where two coloured lines meet. What does it usually mean? | You can change between the two lines there | Both lines end there | The station is closed | It is a bus stop only
+KC057 | 3 | A map scale says "1 cm = 500 m". Two places are 4 cm apart on the map. How far apart are they? | 2 km | 500 m | 4 km | 1 km
+KC079 | 1 | Which instruction is written clearly? | Turn right at the post office. | Right post office turn. | Post office is turning right. | Turning right post office.
+KC079 | 2 | Choose the best word to continue: "Go straight on for 200 metres. ___ you reach the lights, turn left." | When | Although | Because | Unless
+KC079 | 3 | Which directions are complete and clear? | From the hotel, walk north for five minutes, then turn left onto Park Lane; the theatre is on your right. | The theatre is near, you will find it. | Walk a bit then you see it maybe. | Park Lane theatre hotel north left.
+KC079 | 3 | Which sentence best ends a set of written directions? | You can't miss it: the gallery is the large white building next to the fountain. | The gallery is a building. | Directions are now finished, goodbye. | Maybe you will find the gallery.
+KC080 | 1 | Which itinerary line is clear? | 09:00 - Visit the castle. | Castle, maybe, some time. | Visit visit castle 9. | The castle is old.
+KC080 | 2 | Choose the correct preposition for an itinerary: "___ 14:00, we take the bus to the lake." | At | In | On | Of
+KC080 | 3 | Which itinerary entry describes a planned trip correctly? | On day 2, we visit the old town and have dinner by the river. | On day 2, we visited the old town and had dinner by the river. | On day 2, we visiting the old town and dinner by the river. | On day 2, we have visit the old town and dinner by the river.
+KC080 | 3 | Which line best fits the "Day 3" part of an itinerary? | Day 3: Check out at 10:00, take the train to Milan at 11:30, and arrive at 13:00. | Day 3: Milan is a city in Italy. | Day 3: I like trains. | Day 3: Check out, Milan, train, arrive, somehow.
+KC081 | 1 | Which question is polite for a hotel email? | Could you tell me the price of a double room? | How much, double room? | Tell me price. | Price double room now.
+KC081 | 2 | Complete the inquiry: "I would like to ___ whether parking is available." | ask | asking | asked | to asking
+KC081 | 3 | Which sentence is most appropriate in a formal email to a guesthouse? | I would be grateful if you could confirm that pets are allowed. | Are pets ok or what? | I bring dog, ok? | Dogs yes?
+KC081 | 3 | Which sentence correctly asks about two things at once? | Could you let me know whether breakfast is included and what time check-out is? | Could you let me know breakfast is included and what time is check-out? | Could you let me know if is breakfast included and what time check-out? | Could you tell me does breakfast included and check-out time?
