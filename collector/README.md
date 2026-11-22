@@ -50,15 +50,16 @@ Written to the course workspace, `courses/<site>/<course_id>/data/`, unless
 | File                                 | Content                                                                                           |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | `learner_roster.csv`                 | Active enrolled participants, including new learners; `is_simulated` marks `SIM-` accounts        |
-| `activity_catalog.csv`               | Course modules -> topic + sequence; `pass_fraction` is a quiz's pass mark as a share of its grade |
+| `activity_catalog.csv`               | Course modules -> topic + sequence; `pass_fraction` is a quiz's pass mark as a share of its grade; `quiz_role` from the ID number |
 | `learning_events.csv`                | Filtered, context-resolved, session-tagged logstore events; `kc_id` when the module has one KC    |
 | `learning_sessions.csv`              | One row per continuous learning session                                                           |
 | `quiz_attempts.csv`                  | Finished non-preview attempts, normalized, with duration                                          |
 | `kc_catalog.csv`                     | Course Knowledge Components (from question categories)                                            |
 | `moodle_question_kc_map.csv`         | Question-bank entry -> KC (versioned)                                                             |
 | `kc_topic_map.csv`                   | KC -> course topic (from quiz usage)                                                              |
-| `kc_activity_map.csv`                | KC -> learning resource (module competency, else course-module ID number) and practice quizzes    |
-| `kc_mapping_report.json`             | Source of the activity links; KCs per quiz; competency vs question disagreements                  |
+| `kc_activity_map.csv`                | KC -> learning resource (module competency, else course-module ID number) and quizzes (fixed or random slots) |
+| `kc_mapping_report.json`             | Source of the activity links; KCs per quiz; competency vs question disagreements; quizzes per role; pool difficulty coverage |
+| `question_metadata.csv`              | Question-bank entry -> authored difficulty, item set (check/pool), CEFR level, from question tags |
 | `question_answer_events.csv`         | Graded item responses with an explicit item -> KC mapping                                         |
 | `question_answer_mapping_report.csv` | Mapped / unmapped KT response counts                                                              |
 | `course_modules_completion.csv`      | Activity completion states (may be empty)                                                         |
@@ -82,6 +83,17 @@ during the run is newer than the export.
   questions; its competency links are only checked against them
   (`kc_mapping_report.json`). Moodle has no per-question competency, so the
   question category stays the question's KC.
+- A quiz's KCs include its **random slots**: each slot's category filter
+  (`question_set_references.filtercondition`) names one KC category, so a
+  practice or check-in quiz maps to its KCs before anyone attempts it. For a
+  random (KC, quiz) pair, `question_count` is the number of slots.
+- A quiz's **role** is the prefix of its course-module ID number (`CHECK-`,
+  `PRACTICE-`, `CHECKIN-`, `REVIEW-`, `CHALLENGE-`), the third authoring
+  convention. A quiz without a known prefix is a check quiz, so course 10
+  reads as before. Difficulty, item set and CEFR level are question tags
+  (`ml-difficulty-N`, `ml-check`/`ml-pool`, `ml-cefr-xx`) and only feed
+  `question_metadata.csv`; the answer files and `mapping_version` do not
+  depend on them.
 - Mappings are collected **before** the events, so each logstore event gets
   the `kc_id` of its module when the module concerns exactly one KC (empty for
   a mixed quiz, an overview page or an unmapped module). Per-question

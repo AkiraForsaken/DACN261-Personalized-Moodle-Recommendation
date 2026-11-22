@@ -3,6 +3,46 @@
 from .config import t
 from .db import write_csv
 
+# Third authoring convention (next to the KC question category and the KC
+# competency): a quiz's role is the prefix of its course-module ID number,
+# e.g. ``CHECK-KC001``, ``PRACTICE-KC001``, ``CHECKIN-U3``. Kept in step with
+# ``moodle_setup.content.QUIZ_ROLES`` (a test checks this).
+QUIZ_ROLE_CHECK = "check"
+QUIZ_ROLE_PREFIXES = {
+    "CHECK": QUIZ_ROLE_CHECK,
+    "PRACTICE": "practice",
+    "CHECKIN": "checkin",
+    "REVIEW": "review",
+    "CHALLENGE": "challenge",
+}
+CATALOG_COLUMNS = [
+    "course_module_id",
+    "section_id",
+    "section_number",
+    "activity_type",
+    "activity_id",
+    "activity_name",
+    "topic",
+    "sequence",
+    "visible",
+    "completion_tracking",
+    "idnumber",
+    "pass_fraction",
+    "quiz_role",
+]
+
+
+def quiz_role(idnumber, activity_type):
+    """Role of a quiz from its course-module ID number; "" for other modules.
+
+    A quiz without a known prefix is a check quiz: the role every quiz had
+    before roles existed, so older courses (course 10) read as before.
+    """
+    if activity_type != "quiz":
+        return ""
+    prefix = (idnumber or "").strip().split("-", 1)[0].upper()
+    return QUIZ_ROLE_PREFIXES.get(prefix, QUIZ_ROLE_CHECK)
+
 
 def pass_fraction(grade_pass, grade_max):
     """A quiz's pass mark as a share of its maximum grade, or "" if it has none."""
@@ -98,25 +138,10 @@ def collect_activity_catalog(cursor, course_id):
                 # item's pass grade / maximum grade). Empty for other
                 # activities and for quizzes without a pass grade.
                 "pass_fraction": pass_fraction(grade_pass, grade_max),
+                # check / practice / checkin / review / challenge for quizzes.
+                "quiz_role": quiz_role(idnumber, activity_type),
             }
         )
 
-    write_csv(
-        "activity_catalog.csv",
-        rows,
-        [
-            "course_module_id",
-            "section_id",
-            "section_number",
-            "activity_type",
-            "activity_id",
-            "activity_name",
-            "topic",
-            "sequence",
-            "visible",
-            "completion_tracking",
-            "idnumber",
-            "pass_fraction",
-        ],
-    )
+    write_csv("activity_catalog.csv", rows, CATALOG_COLUMNS)
     return rows

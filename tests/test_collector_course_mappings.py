@@ -9,18 +9,28 @@ mappings = importlib.import_module("collector.collect_course_mappings")
 class RoutingCursor:
     """Fake cursor that answers each query by a distinctive table name."""
 
-    def __init__(self, entries=(), usage=(), outside=(), competencies=()):
+    def __init__(self, entries=(), usage=(), outside=(), competencies=(),
+                 random_slots=(), categories=(), tags=()):
         self.results = {
             "entries": list(entries),
             "usage": list(usage),
             "outside": list(outside),
             "competencies": list(competencies),
+            "random_slots": list(random_slots),
+            "categories": list(categories),
+            "tags": list(tags),
         }
         self.current = []
 
     def execute(self, query, params=()):
         if "competency_modulecomp" in query:
             self.current = self.results["competencies"]
+        elif "question_set_references" in query:
+            self.current = self.results["random_slots"]
+        elif "tag_instance" in query:
+            self.current = self.results["tags"]
+        elif "qc.id IN" in query:
+            self.current = self.results["categories"]
         elif "quiz_slots" in query:
             self.current = self.results["usage"]
         elif "qbe.id IN" in query:
@@ -103,8 +113,16 @@ def test_collect_writes_catalog_question_map_and_topic_links(monkeypatch):
         "kc_topic_map.csv",
         "kc_activity_map.csv",
         "kc_mapping_report.json",
+        "question_metadata.csv",
     }
     assert written["kc_mapping_report.json"]["activity_kc_source"] == "course_module_idnumber"
+    # Untagged questions (course 10 style) get metadata rows with empty labels.
+    metadata = written["question_metadata.csv"][0]
+    assert [row["question_bank_entry_id"] for row in metadata] == [
+        row["question_bank_entry_id"] for row in question_map
+    ]
+    assert {(row["difficulty"], row["item_set"], row["cefr_level"]) for row in metadata} == {("", "", "")}
+    assert written["kc_mapping_report.json"]["quizzes_by_role"] == {}
     assert written["kc_catalog.csv"][1] == mappings.KC_CATALOG_COLUMNS
     assert "KC-R1" in {kc["kc_id"] for kc in catalog}
     assert "60" in {row["question_bank_entry_id"] for row in question_map}
@@ -267,3 +285,124 @@ def test_collect_reads_competencies_from_moodle(monkeypatch):
     report = written["kc_mapping_report.json"]
     assert report["module_competency_links"] == 4
     assert report["quiz_competency_mismatches"] == [] and report["single_kc_quizzes"] == 2
+
+
+# --- quiz roles, random slots, question tags (layout kc) --------------------------
+
+from collector import collect_activities  # noqa: E402
+
+
+def test_quiz_role_comes_from_the_id_number_prefix():
+    role = collect_activities.quiz_role
+    assert role("CHECK-KC001", "quiz") == "check"
+    assert role("practice-KC001", "quiz") == "practice"
+    assert role("CHECKIN-U3", "quiz") == "checkin"
+    assert role("REVIEW-U3", "quiz") == "review"
+    assert role("CHALLENGE-KC001", "quiz") == "challenge"
+    # Course 10 style: no or unknown ID number is a check quiz; pages have no role.
+    assert role("", "quiz") == role(None, "quiz") == role("KC001", "quiz") == "check"
+    assert role("PRACTICE-KC001", "page") == ""
+
+
+def test_quiz_role_prefixes_match_the_course_builder():
+    from moodle_setup import content
+
+    assert collect_activities.QUIZ_ROLE_PREFIXES == content.QUIZ_ROLES
+    assert mappings.TAG_PREFIX == content.TAG_PREFIX
+    assert set(mappings.ITEM_SET_TAGS) == {content.TAG_CHECK, content.TAG_POOL}
+    for level in content.DIFFICULTY_LEVELS:
+        assert mappings.DIFFICULTY_TAG.match(content.difficulty_tag(level))
+    for level in content.CEFR_LEVELS:
+        assert mappings.CEFR_TAG.match(content.cefr_tag(level)).group(1).upper() == level
+
+
+def test_random_slot_filter_category_both_moodle_formats():
+    new = '{"filter": {"category": {"jointype": 1, "values": [42], "filteroptions": {"includesubcategories": false}}, "qtagids": {"jointype": 2, "values": [7]}}}'
+    assert mappings._filter_category_id(new) == 42
+    assert mappings._filter_category_id('{"questioncategoryid": "17", "includingsubcategories": 0}') == 17
+    assert mappings._filter_category_id("not json") is None
+    assert mappings._filter_category_id(None) is None
+
+
+def test_random_slots_map_to_the_kc_of_their_category():
+    cond = '{{"filter": {{"category": {{"values": [{}]}}}}}}'.format
+    cursor = RoutingCursor(
+        random_slots=[(8, cond(100)), (8, cond(100)), (9, cond(101)), (9, cond(102)), (9, "bad")],
+        categories=[(100, "KC-G1"), (101, "KC-V1"), (102, "")],
+    )
+    # Category 102 has no ID number and the last slot has no category: skipped.
+    assert mappings._read_random_slot_kcs(cursor, 3) == [(8, "KC-G1"), (8, "KC-G1"), (9, "KC-V1")]
+
+
+ROLE_CATALOG = [
+    {"course_module_id": 50, "activity_type": "quiz", "activity_id": 5, "topic": "Unit 1", "quiz_role": "check"},
+    {"course_module_id": 51, "activity_type": "quiz", "activity_id": 8, "topic": "Unit 1", "quiz_role": "practice"},
+    {"course_module_id": 52, "activity_type": "quiz", "activity_id": 9, "topic": "Unit 1", "quiz_role": "checkin"},
+]
+
+
+def test_random_slot_quizzes_map_before_any_attempt_and_count_slots():
+    catalog, question_map = mappings.build_course_mappings(ENTRIES)
+    # Check quiz 5 uses fixed entries 10 and 11; practice quiz 8 has two random
+    # KC-G1 slots and attempts drew entries 10 and 11; the check-in (9) draws
+    # one question from each of two KCs and has no attempts yet.
+    usage = [(5, 10), (5, 11), (8, 10), (8, 11)]
+    slots = [(8, "KC-G1"), (8, "KC-G1"), (9, "KC-G1"), (9, "KC-V1"), (9, "KC-UNKNOWN")]
+    rows, _ = mappings.build_kc_activity_map(catalog, question_map, usage, ROLE_CATALOG, {}, slots)
+    practice = {(r["kc_id"], r["course_module_id"]): r for r in rows if r["role"] == "practice"}
+
+    assert practice[("KC-G1", 50)]["question_count"] == 2
+    assert practice[("KC-G1", 50)]["mapping_source"] == "quiz_question_usage"
+    # Slots, not the different questions drawn so far.
+    assert practice[("KC-G1", 51)]["question_count"] == 2
+    assert practice[("KC-G1", 51)]["mapping_source"] == "quiz_random_slot"
+    assert practice[("KC-G1", 52)]["question_count"] == 1 and ("KC-V1", 52) in practice
+    assert not any(kc == "KC-UNKNOWN" for kc, _ in practice)
+    # Events on the practice quiz get its KC; the mixed check-in gets none.
+    kc_of = mappings.kc_of_module(rows)
+    assert kc_of[51] == "KC-G1" and 52 not in kc_of
+
+
+def test_question_metadata_reads_tags_of_the_latest_version():
+    _, question_map = mappings.build_course_mappings(ENTRIES)
+    cursor = RoutingCursor(tags=[
+        (10, 1, "ml-check"), (10, 1, "ML-Difficulty-1"), (10, 1, "ml-cefr-a1"),
+        # Entry 11 was edited: version 2's tags replace version 1's.
+        (11, 1, "ml-difficulty-1"), (11, 2, "ml-pool"), (11, 2, "ml-difficulty-3"),
+        (11, 2, "ml-cefr-a1"), (11, 2, "grammar"),
+    ])
+    tags = mappings._read_question_tags(cursor, ["10", "11", "20"])
+    rows = {r["question_bank_entry_id"]: r for r in mappings.build_question_metadata(question_map, tags)}
+
+    assert (rows["10"]["difficulty"], rows["10"]["item_set"], rows["10"]["cefr_level"]) == ("1", "check", "A1")
+    assert (rows["11"]["difficulty"], rows["11"]["item_set"]) == ("3", "pool")
+    # Only the convention's tags are kept; untagged questions stay empty.
+    assert rows["11"]["tags"] == "ml-cefr-a1;ml-difficulty-3;ml-pool"
+    assert (rows["20"]["difficulty"], rows["20"]["item_set"], rows["20"]["tags"]) == ("", "", "")
+    assert list(rows["10"]) == mappings.QUESTION_METADATA_COLUMNS
+
+
+def test_mapping_report_checks_roles_pool_difficulty_and_cefr():
+    catalog = [{"kc_id": "KC-G1"}, {"kc_id": "KC-V1"}]
+    activity_map = [
+        {"kc_id": "KC-G1", "course_module_id": 50, "role": "practice"},
+        {"kc_id": "KC-G1", "course_module_id": 51, "role": "practice"},
+        {"kc_id": "KC-G1", "course_module_id": 52, "role": "practice"},
+        {"kc_id": "KC-V1", "course_module_id": 52, "role": "practice"},
+    ]
+    metadata = [
+        {"kc_id": "KC-G1", "item_set": "pool", "difficulty": "1", "cefr_level": "A1"},
+        {"kc_id": "KC-G1", "item_set": "pool", "difficulty": "3", "cefr_level": "A1"},
+        {"kc_id": "KC-G1", "item_set": "check", "difficulty": "2", "cefr_level": "A2"},
+        {"kc_id": "KC-V1", "item_set": "pool", "difficulty": "2", "cefr_level": "A2"},
+    ]
+    report = mappings.build_mapping_report(catalog, activity_map, ROLE_CATALOG, {}, metadata)
+
+    assert report["quizzes_by_role"] == {"check": 1, "checkin": 1, "practice": 1}
+    assert (report["check_quizzes_single_kc"], report["check_quizzes"]) == (1, 1)
+    assert report["kcs_without_practice"] == ["KC-V1"]
+    assert report["pool_items_by_difficulty"] == {"1": 1, "2": 1, "3": 1}
+    assert report["kcs_missing_hard_pool_items"] == ["KC-V1"]
+    assert report["cefr_disagreements"] == ["KC-G1"]
+    # The check-in mixes two KCs, as designed.
+    assert [q["course_module_id"] for q in report["multi_kc_quizzes"]] == [52]
