@@ -99,3 +99,60 @@ def reliability(pa: pd.DataFrame, models: list[str], bins: int = 10):
     ax.legend()
     fig.tight_layout()
     return fig, pd.DataFrame(rows)
+
+
+def logreg_baseline(kt_dir: Path) -> dict:
+    """Re-fit hardening.py's logistic baseline for one workspace, to show what it learned.
+
+    Same inputs and fitting as hardening.build_predictors (train-fold rates, weights
+    fitted on validation learners). Returns its weights, three example predictions,
+    and its test AUC next to the AUC hardening.py stored, which must agree.
+    """
+    import json
+
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import roc_auc_score
+
+    from hardening import LOGREG_INPUTS, logreg_features, train_statistics, unpadded
+    from kt_common import TRAIN_FOLD, VALID_FOLD
+
+    kt_dir = Path(kt_dir)
+    cfg = next(iter(json.loads((kt_dir / "data_config.json").read_text()).values()))
+    dpath = kt_dir / cfg["dpath"]
+    tv = pd.read_csv(dpath / cfg["train_valid_file"])
+    te = pd.read_csv(dpath / cfg["test_file"])
+    qmap = pd.read_csv(kt_dir / cfg["mapping_dir"] / "question_map.csv").sort_values("questions")
+    g, kc_mean, item_mean, _ = train_statistics(
+        tv[tv["fold"] == TRAIN_FOLD], qmap["concepts"].to_numpy(), cfg["num_q"], cfg["num_c"])
+
+    def table(rows):
+        X, y = [], []
+        for _, row in rows.iterrows():
+            q, c, r = unpadded(row)
+            cs = np.cumsum(r)
+            for t in range(1, len(r)):
+                X.append(logreg_features(q, c, r, t, item_mean, kc_mean, g, cs)); y.append(r[t])
+        return np.array(X), np.array(y)
+
+    Xv, yv = table(tv[tv["fold"] == VALID_FOLD])
+    lr = LogisticRegression(C=1.0, max_iter=1000).fit(Xv, yv)
+    Xt, yt = table(te)
+    auc = float(roc_auc_score(yt, lr.predict_proba(Xt)[:, 1]))
+    hm = pd.read_csv(kt_dir / "artifacts/evaluation/hardening_metrics.csv")
+    stored = float(hm.loc[hm["predictor"].str.startswith("logreg"), "AUC"].iloc[0])
+
+    def predict(item_rate, kc_rate, learner_rate, answers_so_far):
+        lg = lambda p: np.log(p / (1 - p))  # noqa: E731
+        z = lr.intercept_[0] + lr.coef_[0] @ [lg(item_rate), lg(kc_rate), lg(learner_rate), np.log1p(answers_so_far)]
+        return float(1 / (1 + np.exp(-z)))
+
+    skill = round(float(g), 2)  # an average skill: the train-fold correct rate
+    examples = pd.DataFrame([
+        {"question": "easy (85% correct)", "learner so far": "strong (80%)", "P(correct)": predict(.85, skill, .80, 20)},
+        {"question": "hard (35% correct)", "learner so far": "strong (80%)", "P(correct)": predict(.35, skill, .80, 20)},
+        {"question": "hard (35% correct)", "learner so far": "weak (40%)", "P(correct)": predict(.35, skill, .40, 20)},
+    ])
+    weights = pd.DataFrame({"input": LOGREG_INPUTS, "weight": lr.coef_[0]})
+    return {"weights": weights, "intercept": float(lr.intercept_[0]), "examples": examples,
+            "skill_rate": skill, "n_valid": len(yv), "n_test": len(yt),
+            "test_auc": auc, "stored_auc": stored}

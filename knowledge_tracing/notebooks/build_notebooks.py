@@ -426,6 +426,30 @@ from kt_results import model_summary, hardening_tables, per_answer_frame, reliab
 M = ru.MODELS
 L = ru.MODEL_LABEL'''
 
+LOGREG_MD = md("""### What the logistic regression baseline is
+The strongest *simple* rival in the tables above. It predicts each test answer from four facts, all known before the answer is given:
+
+| Input | Computed from | Plain meaning |
+|---|---|---|
+| question difficulty | share of **training** learners who answered this exact question correctly | is this an easy or a hard question? |
+| skill difficulty | share of training learners correct on this KC | is the skill easy or hard in general? |
+| learner so far | share of this learner's **earlier** answers that were correct | is this a strong or a weak learner? |
+| position | number of answers so far | early or late in the history |
+
+The rates are put on the log-odds scale; a question answered by few learners is pulled towards its KC's rate. A weighted sum of the four inputs is turned into a probability (that is what *logistic* means). The weights are fitted on the **validation** learners, because the rates come from the training learners; test learners are used for neither.
+
+It knows question difficulty and learner ability, but **not which questions came before or in what order**. So *AKT − Logistic regression* is roughly what modelling the answer sequence adds beyond "hard question, strong learner", and KC-only models (DKT, DKVMN, SAKT) losing to it shows how much the question's identity matters. Code: `hardening.py` (`train_statistics`, `logreg_features`, `build_predictors`).
+
+The cell below re-fits it with the same code and prints what it learned; its test AUC must equal the one in the tables above.""")
+LOGREG_CODE = code('''from kt_results import logreg_baseline
+lr_info = logreg_baseline(LR_WS)
+print(f"fitted on {lr_info['n_valid']:,} validation answers; intercept {lr_info['intercept']:+.3f}")
+display(lr_info["weights"].round(3))
+print(f"examples after 20 answers, on a skill of average difficulty ({lr_info['skill_rate']:.2f} correct):")
+display(lr_info["examples"].round(3))
+print(f"test AUC of the re-fit {lr_info['test_auc']:.4f} on {lr_info['n_test']:,} answers; stored by hardening.py {lr_info['stored_auc']:.4f}")
+assert abs(lr_info["test_auc"] - lr_info["stored_auc"]) < 1e-4, "re-fit differs from hardening.py"''')
+
 write("14", """# 14 · EdNet-KT1: results
 
 Supports thesis Sections 4.4 (results), 4.5 (learning curve) and 4.7 (discussion). Reads only saved outputs (test-fold metrics, hardening, per-answer predictions, training logs); trains nothing.
@@ -454,6 +478,9 @@ ru.save_table(hm, "ednet_hardening_metrics", f"All predictors on the same test t
               "tab:ednet-hardening", digits=4, size="footnotesize")
 ru.save_table(paired, "ednet_paired", f"Paired AUC differences, learner bootstrap ({MAIN:,} cohort)",
               "tab:ednet-paired", digits=4, align="lrrrr")'''),
+    LOGREG_MD,
+    code('''LR_WS = BENCH / f"ednet_kt1_{MAIN}/kt"'''),
+    LOGREG_CODE,
     md("## 3. Learning curve (test AUC vs cohort size)"),
     code('''lc = pd.read_csv(BENCH / "ednet_kt1_learning_curve.csv")
 wide = lc.pivot_table(index="model", columns="cohort", values="auc_mean").round(4)
@@ -579,6 +606,9 @@ ru.save_table(hm, "english_hardening_metrics", "All predictors on the English te
               "tab:english-hardening", digits=4, size="footnotesize")
 ru.save_table(paired, "english_paired", "Paired AUC differences on the English log (synthetic)",
               "tab:english-paired", digits=4, align="lrrrr")'''),
+    LOGREG_MD,
+    code('''LR_WS = WS'''),
+    LOGREG_CODE,
     md("## 2b. Sensitivity: each model with its best searched configuration\nThe search is selected on validation AUC with seed 42 only. Training each model's best trial with all three seeds in a second workspace (`data/benchmarks/english_kt_searched/`, same split) shows whether the ranking depends on the configuration. On the synthetic log, SAINT's validation AUC moved from 0.66 to 0.81 across its trials, the largest spread of any model."),
     code('''WS2 = Path("data/benchmarks/english_kt_searched/kt")
 best_cfg = json.loads((WS2.parent / "best_configs.json").read_text())
