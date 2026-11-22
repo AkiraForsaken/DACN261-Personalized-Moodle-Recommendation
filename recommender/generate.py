@@ -22,7 +22,9 @@ from .reasons import reason_text
 from .rules import contingency_candidates, forward_candidates, remediation_candidates
 
 POLICY_RULES = "rules"
-POLICIES = (POLICY_RULES, "course_order", "popularity", "random")
+POLICIES = (
+    POLICY_RULES, "course_order", "popularity", "random", "content_based", "item_cf"
+)
 PERSONALISED_BASES = (schemas.BASIS_EVIDENCE, schemas.BASIS_PREDICTION)
 
 
@@ -59,6 +61,12 @@ def recommend(
         return baselines.random_open(
             learner, inputs.course, top_n, seed=context.get("seed", 0)
         )
+    if policy == "content_based":
+        return baselines.content_based(learner, inputs.course, top_n)
+    if policy == "item_cf":
+        return baselines.item_cf(
+            learner, inputs.course, top_n, similarities=context.get("similarities")
+        )
     raise ValueError(f"Unknown policy {policy!r}; choose one of {POLICIES}")
 
 
@@ -66,6 +74,8 @@ def policy_context(inputs, policy, seed=0):
     """What a policy needs that is computed once per snapshot, not per learner."""
     if policy == "popularity":
         return {"popularity": baselines.popularity_counts(inputs.learners)}
+    if policy == "item_cf":
+        return {"similarities": baselines.item_similarities(inputs.learners)}
     return {"seed": seed}
 
 

@@ -8,8 +8,8 @@ Remediation (rests on the learner's own graded answers)
 
     revise_before_retry  a quiz is currently failed, and the lesson of one of
                          its weak KCs has not been read since the last attempt
-    retry_quiz           a quiz is currently failed and nothing is left to
-                         revise for it
+    retry_quiz           a quiz is currently failed: queued right after its
+                         revise/prerequisite lessons (shown once they are read)
     revisit_prerequisite the quiz was failed again although the learner read
                          a weak KC's lesson between the two attempts: go back
                          to KCs of the same dimension in earlier units that
@@ -49,6 +49,8 @@ from . import config, schemas
 EVIDENCE_CONCERN = "evidence_based_concern"
 PREDICTION_CONCERN = "prediction_based_concern"
 STATUS_FAILED = "failed"
+# Priority suffix that places a failed quiz's retry after its own lessons.
+_AFTER_LESSONS = 1_000
 
 
 @dataclass
@@ -224,20 +226,31 @@ def remediation_candidates(learner, course, low_accuracy):
                     _prerequisite_candidate(pick, quiz_module, priority=anchor + (1 + index,))
                 )
                 candidates[-1].evidence.update(quiz_evidence, failed_after_revising=True)
-        if pending:
-            candidates.extend(pending)
-        else:
-            candidates.append(
-                Candidate(
-                    module_id=quiz_module,
-                    reason_code=schemas.RETRY_QUIZ,
-                    priority=retry_priority,
-                    evidence={
-                        **quiz_evidence,
-                        "revised_kcs": [kc_id for kc_id, _ in weak],
-                    },
-                )
+        candidates.extend(pending)
+        # The retry is always queued, right after this quiz's own lessons and
+        # prerequisites. Before, it appeared only once nothing was left to
+        # revise, so after rereading the lesson the failed quiz dropped out of
+        # the list until the next refresh (reading a lesson does not trigger one).
+        siblings = [
+            c.priority
+            for c in candidates
+            if c.evidence.get("quiz_module_id") == quiz_module and c.priority
+        ]
+        candidates.append(
+            Candidate(
+                module_id=quiz_module,
+                reason_code=schemas.RETRY_QUIZ,
+                priority=max(siblings) + (_AFTER_LESSONS,) if siblings else retry_priority,
+                evidence={
+                    **quiz_evidence,
+                    **(
+                        {"lessons_pending": len(pending)}
+                        if pending
+                        else {"revised_kcs": [kc_id for kc_id, _ in weak]}
+                    ),
+                },
             )
+        )
 
     practice = {}  # quiz module -> its weakest concerned KC
     for kc_id, state in learner.kcs.items():

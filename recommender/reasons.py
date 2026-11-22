@@ -81,6 +81,9 @@ def reason_text(candidate, course):
             if best and needed
             else ""
         )
+        if evidence.get("lessons_pending"):
+            lessons = "lesson" if evidence["lessons_pending"] == 1 else "lessons"
+            return f"Once you have reread the {lessons} above, try {quiz_name} again.{score}"
         if evidence.get("revised_kcs"):
             return f"You have reread the lessons for {quiz_name}. Try the quiz again.{score}"
         return f"You have not passed {quiz_name} yet. Try it again.{score}"
@@ -107,4 +110,8 @@ def reason_text(candidate, course):
         return "Completed by many learners of this course."
     if code == schemas.BASELINE_RANDOM:
         return "A randomly chosen open activity."
+    if code == schemas.BASELINE_CONTENT_BASED:
+        return "Similar in content to the topics you answered wrongly."
+    if code == schemas.BASELINE_ITEM_CF:
+        return "Often opened by learners who worked on the same activities as you."
     raise ValueError(f"No reason text for reason code {code!r}")

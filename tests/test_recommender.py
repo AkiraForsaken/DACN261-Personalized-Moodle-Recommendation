@@ -154,10 +154,15 @@ def test_failed_quiz_first_sends_the_learner_back_to_the_weak_lesson():
 
     chosen = recommend(learner, _inputs(learner))
 
-    assert _codes(chosen)[0] == (LESSON_A, schemas.REVISE_BEFORE_RETRY)
-    # The quiz itself is not recommended until the lesson has been reread,
-    # and the KC the learner answered well is not flagged.
-    assert QUIZ_1 not in [c.module_id for c in chosen]
+    # The lesson first, the retry right after it (so the failed quiz stays in
+    # the list once the lesson is reread, without waiting for a refresh); the
+    # KC the learner answered well is not flagged.
+    assert _codes(chosen)[:2] == [
+        (LESSON_A, schemas.REVISE_BEFORE_RETRY),
+        (QUIZ_1, schemas.RETRY_QUIZ),
+    ]
+    assert chosen[1].evidence["lessons_pending"] == 1
+    assert "revised_kcs" not in chosen[1].evidence
     assert LESSON_B not in [c.module_id for c in chosen]
     evidence = chosen[0].evidence
     assert evidence["correct"] == 1 and evidence["attempts"] == 4
@@ -346,6 +351,47 @@ def test_baselines_skip_completed_activities_and_are_deterministic():
     assert OVERVIEW not in [c.module_id for c in first]
     with pytest.raises(ValueError, match="Unknown policy"):
         recommend(learner, inputs, "magic")
+
+
+def test_content_based_ranks_by_similarity_to_wrongly_answered_content():
+    course = build_course_graph(
+        _catalog(), _kc_map(), KC_NAMES,
+        {"KC-A": "grammar", "KC-B": "vocabulary", "KC-C": "grammar", "KC-D": "vocabulary"},
+    )
+    weak_a = _learner(kcs={"KC-A": KCState(attempts=4, observed_accuracy=0.25)})
+    # Profile: grammar + Unit 1. Lesson A matches both; Quiz 1 (KC-A, KC-B)
+    # is next (cosine 0.866); Lesson B matches the unit only (0.5).
+    ranked = baselines.content_based(weak_a, course, 3)
+    assert [c.module_id for c in ranked] == [LESSON_A, QUIZ_1, LESSON_B]
+    assert ranked[0].reason_code == schemas.BASELINE_CONTENT_BASED
+    assert ranked[0].evidence == {"similarity": 1.0, "fallback": None}
+
+    # No answers: plain course order, and the output says so.
+    fresh = baselines.content_based(_learner(), course, 2)
+    assert [c.module_id for c in fresh] == [OVERVIEW, LESSON_A]
+    assert fresh[0].evidence["fallback"] == "course_order"
+
+
+def test_item_cf_uses_co_touched_activities_of_the_same_population_only():
+    viewed = lambda: ActivityState("viewed", last_viewed=1)  # noqa: E731
+    me = _learner("7", activities={LESSON_A: viewed()})
+    peer = _learner("8", activities={LESSON_A: viewed(), LESSON_C: viewed()})
+    peer2 = _learner(
+        "9", activities={LESSON_A: viewed(), LESSON_C: viewed(), QUIZ_2: viewed()}
+    )
+    other = LearnerState("10", population="simulated", activities={LESSON_A: viewed()})
+    inputs = _inputs(me, peer, peer2, other)
+    context = {"similarities": baselines.item_similarities(inputs.learners)}
+
+    # sim(A, C) = 2/sqrt(3*2) = 0.816 > sim(A, Q2) = 1/sqrt(3) = 0.577
+    mine = recommend(me, inputs, "item_cf", 2, context)
+    assert [c.module_id for c in mine] == [LESSON_C, QUIZ_2]
+    assert mine[0].evidence == {"score": 0.8165, "fallback": None}
+    # The simulated learner sees no real learner's co-occurrences: popularity
+    # within its own population is all it gets.
+    theirs = recommend(other, inputs, "item_cf", 2, context)
+    assert theirs[0].module_id == LESSON_A
+    assert theirs[0].evidence["fallback"] == "popularity"
 
 
 # ---------------------------------------------------------- contract / output
