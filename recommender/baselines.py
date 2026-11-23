@@ -7,8 +7,8 @@ activity is chosen, not about recommending finished work.
 
     course_order  the first open activities of the course, from the top. It
                   ignores where the learner currently is.
-    popularity    the open activities most learners in the snapshot have
-                  completed.
+    popularity    the open activities most learners of the same population
+                  in the snapshot have completed.
     random        open activities drawn uniformly (seeded per learner).
 
 Two personalised comparison policies use the learner's data, but none of the
@@ -47,15 +47,22 @@ def course_order(learner, course, top_n, **_):
 
 
 def popularity_counts(learners):
-    """module_id -> number of learners who have completed it."""
-    counts = Counter()
+    """population -> {module_id: number of learners who have completed it}.
+
+    Counted per learner population, like ``item_similarities``, so real and
+    simulated learners never inform each other's lists.
+    """
+    counts = defaultdict(Counter)
     for learner in learners.values():
-        counts.update(m for m, state in learner.activities.items() if state.done)
-    return counts
+        counts[learner.population].update(
+            m for m, state in learner.activities.items() if state.done
+        )
+    return dict(counts)
 
 
 def popularity(learner, course, top_n, popularity=None, **_):
-    counts = popularity or {}
+    """Open activities most completed by learners of the same population."""
+    counts = (popularity or {}).get(learner.population) or {}
     ranked = sorted(
         _open(learner, course), key=lambda a: (-counts.get(a.module_id, 0), a.sequence)
     )

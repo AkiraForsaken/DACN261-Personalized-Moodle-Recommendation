@@ -394,6 +394,27 @@ def test_item_cf_uses_co_touched_activities_of_the_same_population_only():
     assert theirs[0].evidence["fallback"] == "popularity"
 
 
+def test_popularity_counts_only_the_learners_own_population():
+    done = lambda: ActivityState("completed", last_viewed=1)  # noqa: E731
+    me = _learner("7")
+    peer = _learner("8", activities={LESSON_B: done()})
+    simulated = [
+        LearnerState(str(i), population="simulated", activities={LESSON_D: done()})
+        for i in (10, 11, 12)
+    ]
+    inputs = _inputs(me, peer, *simulated)
+    context = {"popularity": baselines.popularity_counts(inputs.learners)}
+
+    # Three simulated completions of D must not outrank one real completion of B.
+    mine = recommend(me, inputs, "popularity", 1, context)
+    assert mine[0].module_id == LESSON_B
+    assert mine[0].evidence == {"completed_by_learners": 1}
+    newcomer = LearnerState("13", population="simulated")
+    theirs = recommend(newcomer, inputs, "popularity", 1, context)
+    assert theirs[0].module_id == LESSON_D
+    assert theirs[0].evidence == {"completed_by_learners": 3}
+
+
 # ---------------------------------------------------------- contract / output
 def test_output_follows_the_contract_and_explains_every_row():
     learner = _failed_quiz_1(lesson_a_viewed_at=50)
