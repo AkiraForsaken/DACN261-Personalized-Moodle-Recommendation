@@ -1,6 +1,6 @@
 """The refresh worker: answers Moodle's per-learner refresh requests.
 
-    python moodle-sync.py worker --course 10 [--poll 15] [--full-at 03:00] [--once]
+    python moodle-sync.py worker --course <id> [--poll 15] [--full-at 03:00] [--once]
 
 Moodle (local_microlearning's observer) writes a row into
 ``local_microlearning_refresh`` when a learner has worked through their list,

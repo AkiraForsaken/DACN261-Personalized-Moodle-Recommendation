@@ -47,10 +47,11 @@ from another export (after a course rebuild every course-module id changes).
 | Reason code | Fires when | Recommends | Basis |
 | --- | --- | --- | --- |
 | `revise_before_retry` | a quiz is currently failed; the lesson of one of its weak KCs was not read since the last attempt | that lesson | evidence |
-| `retry_quiz` | a quiz is failed and nothing is left to revise for it | the quiz | evidence |
+| `retry_quiz` | a quiz is failed; queued right after its revise/prerequisite lessons, shown once they are read | the quiz | evidence |
 | `revisit_prerequisite` | a quiz was failed again although a weak KC's lesson was read between the last two attempts | up to 2 lessons of the same dimension in earlier units, weak or not assessed, nearest unit first | evidence |
 | `review_weak_kc` | evidence-based concern on a KC outside a failed quiz; lesson not read since the last answer | lesson | evidence |
-| `practice_weak_kc` | same, lesson read since | the practice quiz | evidence |
+| `practice_weak_kc` | same, lesson read since | the KC's practice quiz (layout kc), else its check quiz | evidence |
+| `challenge_strong_kc` | a KC with at least 5 answers at observed accuracy 0.80 or more, its check passed, its challenge quiz never attempted (at most 1, the most recently checked KC) | the KC's challenge quiz (hard pool questions), second in the forward items | evidence |
 | `prepare_predicted_difficulty` | prediction-based concern on a KC of the quiz the learner is about to take; lesson not read | lesson | prediction |
 | `continue_course` | always | next open activity, from the learner's current unit | course order |
 | `start_course` | the learner has done nothing yet | first activity | course order |
@@ -70,6 +71,26 @@ added right after the weakest lesson (or before the retry). "Same dimension,
 earlier unit = prerequisite" is a **course-design assumption**
 (`config.PREREQUISITE_RELATION`), not a relation learned from data. A quiz of
 Unit 1 has no earlier unit, so only the loop applies there.
+
+**Quiz roles (layout kc).** A KC's quiz (`quiz_of_kc`: retry, contingency,
+"is the KC checked?") is always a **check** quiz; practice and challenge
+quizzes are kept apart (`practice_of_kc`, `challenge_of_kc`). The upcoming
+quiz of `prepare_predicted_difficulty` is the next open check quiz. A KC's
+practice quiz leaves course order once its check is passed, a unit's check-in
+once any check of that unit was attempted, and challenge quizzes appear only
+through `challenge_strong_kc`. A course without roles has only check
+quizzes, so every rule above works on it unchanged.
+
+**Retry cap.** Quizzes allow unlimited attempts. After
+`MAX_FAILED_CHECK_ATTEMPTS` (3) failed attempts of one check quiz in a row it
+is "stuck": no `revise_before_retry` / `retry_quiz` for it and no failure
+branch; its earlier-unit prerequisites are offered once
+(`revisit_prerequisite` with `retry_cap_reached`), its weak KCs go to
+review/practice, and the first `continue_course` item of the list carries
+`stuck_quiz_module_id` / `stuck_failed_attempts` (shown to the teacher) and
+says the learner may move on. Passing another check quiz afterwards releases
+it for one more retry. The precomputed branch of a failure that would reach
+the cap has no retry row. The manifest counts `learners_at_retry_cap`.
 
 Two deliberate restrictions:
 
@@ -91,7 +112,7 @@ yet, picked with the same slot rules (`ranking.window`, mirrored in PHP by
 `python -m tests.window_fixture`). So the list refills as the learner works
 and is empty only when the course is complete; a per-learner refresh (see
 [moodle_sync/README.md](../moodle_sync/README.md)) then recomputes the queue.
-`evaluate` scores the top 5 only, so its numbers did not change with the queue.
+`evaluate` scores the top 5 only.
 
 **Failure branches (`group = contingency`).** After the queue come
 precomputed branches, one per quiz not yet passed: "if this quiz is failed",
@@ -134,13 +155,25 @@ learners have at least one evidence- or prediction-based item.
 
 `recommend.py evaluate --course <id> --cutoffs 6 --horizon-days 7` replays the
 pipeline at past cutoffs (knowledge states up to T-1, learner model strictly
-before T) and compares `rules` with three baselines: `course_order` (first
-open activities from the top of the course), `popularity`, `random`. It
-writes `metrics.csv` (per cutoff), `summary.csv`, `report.md`.
+before T) and compares `rules` with five comparison policies
+(`baselines.py`). All of them skip completed activities, so they differ only
+in which open activity they choose:
+
+| Policy | Family | Recommends |
+| --- | --- | --- |
+| `course_order` | non-personalised | the first open activities from the top of the course |
+| `popularity` | non-personalised | the open activities most learners of the same population have completed |
+| `random` | non-personalised | open activities drawn at random (seeded per learner) |
+| `content_based` | content-based | open activities whose KC dimension and unit are closest to what the learner got wrong (no answers: course order) |
+| `item_cf` | item-based collaborative filtering | open activities that learners of the same population did together with this learner's activities (nothing done: popularity) |
+| `rules` | knowledge-based, explainable | the recommender above |
+
+It writes `metrics.csv` (per cutoff), `summary.csv`, `report.md`.
 
 | Metric | Shows | Caveat |
 | --- | --- | --- |
-| `hit_at_n`, `mrr`, `first_next_hit` | agreement with what learners did next | the simulator makes learners revise after failing and move forward in order; rules built on the same habits agree by construction |
+| `hit_at_n`, `mrr`, `first_next_hit` | agreement with what learners did next | simulated learners revise after failing and move forward in order; rules built on the same habits agree by construction |
+| `precision_at_n`, `recall_at_n`, `ndcg_at_n` | the same agreement as standard top-N ranking metrics | same caveat |
 | later accuracy on flagged vs other KCs | whether flagged KCs really were weak | flagged KCs are selected for low past accuracy; part of the gap is KC difficulty |
 | shares by basis | how much is personalised | most rows are course order while most learner x KC states are cold start |
 | `stability_jaccard` | overlap of a learner's list between cutoffs | |
@@ -149,14 +182,13 @@ Leakage controls: the `bkt` variant has no trained weights and is scored on
 every learner; the `active` variant (a promoted deep model, trained on the
 whole period) is scored only on its held-out test learners.
 
-Results on the test course: [docs/test_course_results.md](../docs/test_course_results.md).
-They describe the simulator, not real learners.
+Results on simulated learners describe the simulator, not real learners.
 
 ## Limits
 
 - Rules, thresholds and slot sizes are design choices, not calibrated.
 - The prerequisite relation (same dimension, earlier unit) is an assumption
-  about this course's design. Weak KCs of a failed quiz are judged on all
+  about the course design, not learned from data. Weak KCs of a failed quiz are judged on all
   answers to that KC so far, not on the last attempt alone.
 - Nobody followed these recommendations: the replay measures agreement and
   targeting, not learning gain. Any effect of lessons on simulated answers is

@@ -8,39 +8,54 @@ exported by the collector; no benchmark concept map is involved.
 - A question category with an **ID number** is one KC. The ID number is the
   `kc_id`, the category name is the KC name, and the category description is
   the learning objective.
-- The **parent category** is the KC dimension (grammar, vocabulary, reading,
-  writing, ...). A KC category directly under the top category gets the
+- The **parent category** is the KC dimension (for a language course:
+  grammar, vocabulary, reading, writing, ...). A KC category directly under the top category gets the
   dimension `general`.
 - A question sits in one category, so it belongs to at most one KC. Questions
   in categories without an ID number are not mapped and do not take part in
   knowledge estimation; the collector counts them.
 - An activity is linked to a KC through Moodle's **competencies**: one
-  competency framework (in `ENG-MICRO-KC`: `ENG-MICRO-KCS`) with one
-  competency per KC whose **ID number is the `kc_id`**, linked to the course
-  and to the KC's activities (_Activity settings > Competencies_). A non-quiz
-  activity linked to a KC's competency is that KC's **learning resource** (the
-  `Lesson: <KC name>` pages). Teachers see and edit these links in Moodle's
-  own UI. Competency ID numbers that match no KC are reported; dimension
-  competencies (`DIM-...`) are parents and ignored.
+  competency framework with one competency per KC whose **ID number is the
+  `kc_id`**, linked to the course and to the KC's activities (_Activity
+  settings > Competencies_). A non-quiz activity linked to a KC's competency
+  is that KC's **learning resource** (typically its lesson page). Teachers see
+  and edit these links in Moodle's own UI. Competency ID numbers that match no
+  KC are reported; grouping competencies (ID number `DIM-...`) are parents and
+  ignored.
 - A quiz's KCs are always the KCs of its questions. Its competency links are
   checked against them; disagreements go to `kc_mapping_report.json`.
 - Moodle has no per-question competency, so the question category stays the
   source of a question's KC.
-- **Fallback** for a course without any module competency (`ENG-MICRO`,
-  course 10): a non-quiz activity whose **course-module ID number** equals a
-  `kc_id` is that KC's learning resource. Quiz ID numbers are ignored.
+- **Fallback** for a course without any module competency: a non-quiz
+  activity whose **course-module ID number** equals a `kc_id` is that KC's
+  learning resource. Quiz ID numbers are ignored.
+- A quiz's **role** is its course-module ID number prefix (`CHECK-`,
+  `PRACTICE-`, `CHECKIN-`, `REVIEW-`, `CHALLENGE-`; none = check), read into
+  `activity_catalog.csv` (`quiz_role`). Only check quizzes count as "the KC's
+  quiz" for retries and for "is the KC checked".
+- Optional **question tags** give each question's authored difficulty
+  (`ml-difficulty-N`), item set (`ml-check` / `ml-pool`) and level
+  (`ml-cefr-xx`), written to `question_metadata.csv`. They do not change the
+  KC mapping or `mapping_version`.
 
-### One activity = one KC
+### Recommended course design: one activity = one KC
 
-`ENG-MICRO-KC` follows the microlearning rule: each KC has one lesson and one
-check quiz holding only that KC's 4-5 questions (`build-course --layout kc`).
-`ENG-MICRO` (course 10) mixes about three KCs per practice quiz. Knowledge
-tracing works per question in both, because every question has exactly one KC;
-the difference is in quiz-level signals. In a mixed quiz a failed attempt does
-not say which KC was weak (the recommender falls back to per-KC answer
-accuracy), and practising one KC means taking questions on others. In a
-one-KC quiz, the pass/fail result and the completion state are evidence about
-that KC alone.
+The system gives the most precise feedback when every activity concerns one
+KC: per KC a lesson, a practice quiz (random questions from the KC's pool, no
+pass mark), a check quiz holding only that KC's questions, and optionally a
+challenge quiz of hard questions. Two multi-KC quizzes per unit are
+deliberate: a check-in before teaching (one question per KC of the unit) and
+a review of earlier KCs.
+
+Knowledge tracing works per question in any layout, because every question
+has exactly one KC; the layout changes the quiz-level signals. In a quiz that
+mixes KCs, a failed attempt does not say which KC was weak (the recommender
+falls back to per-KC answer accuracy), and practising one KC means answering
+questions on others. In a one-KC quiz, the pass/fail result and the
+completion state are evidence about that KC alone.
+
+The test bed (`moodle_setup/`) builds a course in this design and, for
+comparison, one with mixed quizzes.
 
 ## Files the collector writes
 

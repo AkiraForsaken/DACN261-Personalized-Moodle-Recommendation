@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Moodle -> learner profiles -> recommendations -> Moodle, for one course.
 #
-#   ./run_pipeline.sh --course 10              full run, including the import into Moodle
-#   ./run_pipeline.sh --course 10 --no-push    stop after building the bundle
+#   ./run_pipeline.sh --course <id>            full run, including the import into Moodle
+#   ./run_pipeline.sh --course <id> --no-push  stop after building the bundle
 #
 # The course id can also come from MOODLE_COURSE_ID. Everything is read from and
 # written to the course's workspace, courses/<site>/<course_id>/ (see

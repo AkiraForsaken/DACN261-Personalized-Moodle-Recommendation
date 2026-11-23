@@ -11,7 +11,7 @@ learner_model + recommender (course workspace)
         │  moodle-sync.py bundle | push          flat CSVs + manifest.json (bundle schema 3)
         ▼
 courses/<site>/<id>/bundle/   or  refresh/<stamp>/bundle/ (some learners)
-        │  Moodle downloads it from the engine service (plugin 0.3.0, api/)
+        │  Moodle downloads it from the engine service (api/)
         │  or, without an engine URL: docker cp + plugin CLI (push / worker)
         ▼
 local_microlearning   tables, import, refresh requests (observer), teacher pages
@@ -32,11 +32,11 @@ The plugins live in the Moodle fork: `moodle/public/local/microlearning` and
 
 ```bash
 docker exec moodle-docker-webserver-1 php /var/www/html/admin/cli/upgrade.php --non-interactive
-python moodle-sync.py push --course <id>         # after an upgrade that recreates the tables (0.2.0): push again
+python moodle-sync.py push --course <id>         # first snapshot of a course
 ```
 
-Installed versions: `local_microlearning` 0.3.0, `block_microlearning` 0.1.0
-(see each plugin's `version.php`).
+Current versions: `local_microlearning` 0.4.0, `block_microlearning` 0.2.0
+(each plugin's `version.php`).
 
 `build-course` adds the block to a new course when the plugin is installed. On
 an existing course, add it by hand: turn editing on, _Add a block_,
@@ -85,7 +85,7 @@ python moodle-sync.py refresh --course <id> --learners 7,12   # refresh named le
    (`list_done`), submitted a quiz attempt below its pass mark (`quiz_failed`,
    setting), or was enrolled without a profile (`new_learner`). One pending
    request per learner and course.
-3. With an engine URL set (0.3.0), the observer also queues the ad hoc task
+3. With an engine URL set, the observer also queues the ad hoc task
    `refresh_learner`, which asks the engine service to refresh the learner,
    downloads the bundle and imports it ([api/README.md](../api/README.md)).
    Without one, the worker polls that table (read-only). Either way the engine
@@ -135,26 +135,31 @@ are not in the course (a bundle made before a course rebuild).
 
 ## What users see
 
-- **Students** (`block_microlearning`): their current window of the queue,
-  with the activity link, the reason, and a label for the basis ("Based on
-  your answers", "Estimate", "Next in the course"), and the time their data
-  was read.
+- **Learners, on the course page** (`block_microlearning`): the first item of
+  their window as an "Up next" card with its kind (Learn, Check; revision
+  items marked) and a Start button, the others under "Also recommended".
+  Each item shows its reason and a label for its basis ("Based on your
+  answers", "Estimate", "Next in the course"), and the block says up to when
+  the learner's work was read.
+- **Learners, their own profile** (capability
+  `local/microlearning:viewownprofile`, course navigation > _My learning
+  profile_): knowledge levels, skills, progress per unit, weak and strong
+  topics, quiz scores and next steps, in plain language. It leaves out the
+  cohort comparison, the evidence numbers and the technical notes.
 - **Teachers and managers** (capability `local/microlearning:viewprofiles`,
   course navigation > _Learner profiles_):
-  - the cohort: tiles, all learners' topics by level, a unit x skill map of
-    the mean share of correct answers (cells with at least 5 learners), the
-    topics with most learners at the weak level, and every learner with
-    topics answered, % correct, weak/strong topics, weakest skill, estimator
-    and data time (pending refreshes marked);
-  - a learner (`profile.php`): tiles, topics by level, skills against the
-    cohort of the same population (at least 5 learners), the unit x skill map,
-    the topics of a unit as a meter list (level, x of y correct, lesson and
-    quiz links; model estimates labelled), weak topics, estimated difficulties,
-    strengths, quiz scores over time with the pass mark, what the learner's
-    block shows now, and engagement (collapsed).
-    Knowledge levels come from answers only (`learner_model/knowledge_levels.py`).
-    Chart colours were checked for colour-vision deficiency and contrast; every
-    level is always printed as text (`classes/output/knowledge_display.php`).
+  - the group page (`index.php`), filtered by population and by Moodle group
+    (only groups the teacher may see): summary tiles, levels across all
+    learner × topic pairs, levels per unit, skill means per dimension, a unit
+    × skill map, the hardest topics, and a paginated, searchable, sortable
+    learner list;
+  - a learner's profile (`profile.php?id=<course>&userid=<user>`): the
+    learner's view plus the comparison with learners of the same population,
+    the evidence behind each level and estimate, and the unit × skill map.
+
+Knowledge levels come from answers only (`learner_model/knowledge_levels.py`).
+Chart colours were checked for colour-vision deficiency and contrast, and
+every level is also printed as text (`classes/output/knowledge_display.php`).
 
 ## Privacy
 
@@ -164,14 +169,13 @@ context). The block stores nothing.
 
 ## Deployment (engine on its own server)
 
-**Since 0.3.0 Moodle calls the engine** ([api/README.md](../api/README.md)):
-the engine service (`engine-api.py`) answers refresh and full-run requests
-with a finished bundle, which the plugin downloads and imports itself
+Moodle calls the engine ([api/README.md](../api/README.md)): the engine
+service (`engine-api.py`) answers refresh and full-run requests with a
+finished bundle, which the plugin downloads and imports itself
 (`engine_client`, ad hoc task `refresh_learner`, nightly scheduled task
-`full_sync`). The engine needs only read access to Moodle's database (the
-collector) and never writes to Moodle, so the planned `webservice` push
-transport is no longer needed. `push`, `refresh` and the polling `worker`
-remain for development and as a fallback when no engine URL is set
+`full_sync`). The engine needs only read access to Moodle's database (for the
+collector) and never writes to Moodle. `push`, `refresh` and the polling
+`worker` remain for development and as a fallback when no engine URL is set
 (`local_microlearning | engineurl`).
 
 ## Tests and verification
@@ -179,8 +183,8 @@ remain for development and as a fallback when no engine URL is set
 `tests/test_moodle_sync.py` and `tests/test_worker.py` cover the bundle,
 workspace isolation, the worker, and the equivalence of a per-learner refresh
 with a full run. The PHP window rule is checked against the shared fixture
-inside the web container. What was checked live, what is not yet checked, and
-a known chart limitation: [docs/test_course_results.md](../docs/test_course_results.md).
+inside the web container (`tests/test_recommender.py` skips it when the
+container is not running).
 
 ```bash
 # PHPUnit, once Composer is available in the container:

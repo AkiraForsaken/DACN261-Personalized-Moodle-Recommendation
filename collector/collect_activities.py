@@ -36,7 +36,7 @@ def quiz_role(idnumber, activity_type):
     """Role of a quiz from its course-module ID number; "" for other modules.
 
     A quiz without a known prefix is a check quiz: the role every quiz had
-    before roles existed, so older courses (course 10) read as before.
+    before roles existed, so a course without role prefixes needs no change.
     """
     if activity_type != "quiz":
         return ""

@@ -76,10 +76,10 @@ during the run is newer than the export.
   dimension (`collect_course_mappings.py`). `MOODLE_QUESTION_KC_MAPPING` may
   point at a hand-curated crosswalk instead.
 - An activity's KC comes from Moodle's **course-module competencies**
-  (`competency_modulecomp`; competency ID number = `kc_id`), the convention of
-  the one-KC-per-activity course ENG-MICRO-KC. Only in a course without any
-  module competency (ENG-MICRO, id 10) does the older rule apply: a non-quiz
-  module whose ID number is a `kc_id`. A quiz's KCs always come from its
+  (`competency_modulecomp`; competency ID number = `kc_id`), which teachers
+  see and edit in the activity settings. Only in a course without any module
+  competency does the fallback apply: a non-quiz module whose ID number is a
+  `kc_id`. A quiz's KCs always come from its
   questions; its competency links are only checked against them
   (`kc_mapping_report.json`). Moodle has no per-question competency, so the
   question category stays the question's KC.
@@ -89,8 +89,8 @@ during the run is newer than the export.
   random (KC, quiz) pair, `question_count` is the number of slots.
 - A quiz's **role** is the prefix of its course-module ID number (`CHECK-`,
   `PRACTICE-`, `CHECKIN-`, `REVIEW-`, `CHALLENGE-`), the third authoring
-  convention. A quiz without a known prefix is a check quiz, so course 10
-  reads as before. Difficulty, item set and CEFR level are question tags
+  convention. A quiz without a known prefix is a check quiz, so a course
+  without roles needs no change. Difficulty, item set and CEFR level are question tags
   (`ml-difficulty-N`, `ml-check`/`ml-pool`, `ml-cefr-xx`) and only feed
   `question_metadata.csv`; the answer files and `mapping_version` do not
   depend on them.

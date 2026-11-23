@@ -39,10 +39,11 @@ order:
 
   1. Course-module competencies (``competency_modulecomp``): a non-quiz module
      linked to the competency whose ID number is the kc_id. This is the
-     Moodle-native way and the convention of the one-KC-per-activity course
-     (ENG-MICRO-KC).
+     Moodle-native way, and teachers see and edit the link in the activity's
+     settings.
   2. Only when the course has no module competencies at all: the module whose
-     course-module ID number equals the kc_id (course ENG-MICRO, id 10).
+     course-module ID number equals the kc_id (fallback for courses that do
+     not use competencies).
 
 A quiz's KCs always come from the questions it uses (what it measures): its
 fixed slots, its random slots (each random slot draws from one KC category),
