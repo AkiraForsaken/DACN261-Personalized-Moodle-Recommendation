@@ -19,10 +19,18 @@ from . import baselines, config, schemas
 from .inputs import load_inputs
 from .ranking import group_of, order_queue, select
 from .reasons import reason_text
-from .rules import contingency_candidates, forward_candidates, remediation_candidates
+from .rules import (
+    contingency_candidates,
+    forward_candidates,
+    mark_stuck,
+    remediation_candidates,
+    stuck_quizzes,
+)
 
 POLICY_RULES = "rules"
-POLICIES = (POLICY_RULES, "course_order", "popularity", "random")
+POLICIES = (
+    POLICY_RULES, "course_order", "popularity", "random", "content_based", "item_cf"
+)
 PERSONALISED_BASES = (schemas.BASIS_EVIDENCE, schemas.BASIS_PREDICTION)
 
 
@@ -44,6 +52,7 @@ def recommend(
             top_n,
             config.MAX_REMEDIATION,
         )
+        chosen = mark_stuck(chosen, learner, inputs.course)
         if full_queue:
             chosen = chosen + contingency_candidates(
                 learner, inputs.course, inputs.low_accuracy
@@ -59,6 +68,12 @@ def recommend(
         return baselines.random_open(
             learner, inputs.course, top_n, seed=context.get("seed", 0)
         )
+    if policy == "content_based":
+        return baselines.content_based(learner, inputs.course, top_n)
+    if policy == "item_cf":
+        return baselines.item_cf(
+            learner, inputs.course, top_n, similarities=context.get("similarities")
+        )
     raise ValueError(f"Unknown policy {policy!r}; choose one of {POLICIES}")
 
 
@@ -66,6 +81,8 @@ def policy_context(inputs, policy, seed=0):
     """What a policy needs that is computed once per snapshot, not per learner."""
     if policy == "popularity":
         return {"popularity": baselines.popularity_counts(inputs.learners)}
+    if policy == "item_cf":
+        return {"similarities": baselines.item_similarities(inputs.learners)}
     return {"seed": seed}
 
 
@@ -167,6 +184,10 @@ def summarize(frame, inputs, top_n=config.TOP_N):
             str(k): int(v) for k, v in frame["basis"].value_counts().items()
         },
         "by_population": by_population,
+        # Learners with a check quiz at the retry cap (config.MAX_FAILED_CHECK_ATTEMPTS).
+        "learners_at_retry_cap": sum(
+            bool(stuck_quizzes(learner, inputs.course)) for learner in inputs.learners.values()
+        ),
         "queue": {
             "rows": int(len(queue)),
             "mean_length": round(float(queue.groupby("learner_id").size().mean()), 2)
@@ -220,6 +241,10 @@ def generate(
             "max_prepare": config.MAX_PREPARE,
             "max_prerequisites": config.MAX_PREREQUISITES,
             "prerequisite_relation": config.PREREQUISITE_RELATION,
+            "max_failed_check_attempts": config.MAX_FAILED_CHECK_ATTEMPTS,
+            "challenge_min_answers": config.CHALLENGE_MIN_ANSWERS,
+            "challenge_min_accuracy": config.CHALLENGE_MIN_ACCURACY,
+            "max_challenge": config.MAX_CHALLENGE,
             "full_queue": full_queue,
             "low_observed_accuracy_threshold": inputs.low_accuracy,
             "note": "design choices, not calibrated on learner data",
@@ -227,7 +252,17 @@ def generate(
         "course": {
             "recommendable_activities": len(inputs.course.activities),
             "kcs_with_lesson": len(inputs.course.lesson_of_kc),
+            # A KC's check quiz (named before quiz roles existed).
             "kcs_with_practice_quiz": len(inputs.course.quiz_of_kc),
+            "kcs_with_low_stakes_practice": len(inputs.course.practice_of_kc),
+            "kcs_with_challenge_quiz": len(inputs.course.challenge_of_kc),
+            "quizzes_by_role": dict(
+                Counter(
+                    inputs.course.quiz_role(a.module_id)
+                    for a in inputs.course.activities
+                    if a.activity_type == "quiz"
+                )
+            ),
         },
         "summary": summarize(frame, inputs, top_n),
         "inputs": inputs.input_files,

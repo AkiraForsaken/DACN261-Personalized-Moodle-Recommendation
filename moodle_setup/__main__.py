@@ -1,6 +1,6 @@
 """Set up the local Moodle test instance.
 
-python -m moodle_setup build-course       create the English course
+python -m moodle_setup build-course       create the English course (--layout kc|dimension)
 python -m moodle_setup simulate-learners  add simulated learners and attempts
 python -m moodle_setup remove-simulated   delete the simulated learners
 python -m moodle_setup check-content      validate the course content only
@@ -25,19 +25,40 @@ def _write_temp_json(payload, name):
     return path
 
 
+# php/build_course.php reads spec["quizzes"] and spec["sections"] (quiz roles,
+# random pool slots, question tags). Kept as a switch so a spec with quizzes is
+# never sent to a build script that would ignore them.
+BUILD_SUPPORTS_QUIZ_ROLES = True
+
+
 def build_course(args):
-    spec = content.build_spec()
+    spec = content.build_spec(layout=args.layout)
+    if "quizzes" in spec and not BUILD_SUPPORTS_QUIZ_ROLES:
+        raise SystemExit(
+            f"Layout {args.layout} now has practice, check-in, review and challenge "
+            "quizzes, but php/build_course.php cannot build them yet. Nothing was "
+            "changed in Moodle. Use `check-content --layout kc` to validate the content."
+        )
     remote = docker.copy_in(_write_temp_json(spec, "course_spec.json"))
     result = docker.run_php(
         "build_course.php", remote, *(["--rebuild"] if args.rebuild else [])
     )
     workspace = CourseWorkspace.of(result["course_id"], args.site)
-    workspace.write_course_info(shortname=result["shortname"], built_by="moodle_setup")
+    workspace.write_course_info(
+        shortname=result["shortname"], built_by="moodle_setup", layout=args.layout
+    )
     print(
         f"\nCourse {result['shortname']} is ready: {result['kcs']} KCs, "
         f"{result['questions']} questions, {result['lessons']} lessons, "
-        f"{result['quizzes']} quizzes (pass mark {result['gradepass']}/10).\n"
-        f"Workspace: {workspace.base}\n"
+        f"{result['quizzes']} quizzes (pass mark {result['gradepass']}/10), layout "
+        f"{result.get('layout', args.layout)}, {result.get('competencies', 0)} KC competencies "
+        f"linked to {result.get('competency_links', 0)} activities.\n"
+        + (
+            f"Quizzes by role: {result['quizzes_by_role']}; {result.get('random_slots', 0)} random slots.\n"
+            if result.get("quizzes_by_role")
+            else ""
+        )
+        + f"Workspace: {workspace.base}\n"
         f"For the pipeline:  export MOODLE_COURSE_ID={result['course_id']}"
     )
 
@@ -45,7 +66,7 @@ def build_course(args):
 def simulate_learners(args):
     from knowledge_engine.simulator import simulate_plan
 
-    structure = docker.run_php("export_structure.php", content.COURSE_SHORTNAME)
+    structure = docker.run_php("export_structure.php", args.shortname)
     lessons = structure.get("lessons") or {}
     if not lessons:
         print(
@@ -60,6 +81,8 @@ def simulate_learners(args):
         lessons=lessons,
         overviews=structure.get("overviews") or {},
         lesson_gain=args.lesson_gain,
+        session_scale=args.session_scale,
+        items=structure.get("items") or {},
     )
     answers = sum(len(a["answers"]) for learner in plan for a in learner["attempts"])
     attempts = sum(len(learner["attempts"]) for learner in plan)
@@ -67,6 +90,8 @@ def simulate_learners(args):
         f"Plan: {len(plan)} learners, {attempts:,} quiz attempts, {answers:,} answers "
         f"(seed {args.seed}). Generator ceiling AUC: {manifest['ceiling_auc']}."
     )
+    if manifest.get("attempts_by_role"):
+        print(f"Attempts by quiz role: {manifest['attempts_by_role']}.")
     pages = manifest.get("page_behaviour")
     if pages:
         print(
@@ -75,6 +100,8 @@ def simulate_learners(args):
             f"reviews (lesson gain {pages['lesson_gain']})."
         )
     if args.plan_out:
+        # A freshly built course's workspace has no data/ folder yet.
+        Path(args.plan_out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.plan_out).write_text(
             json.dumps({"manifest": manifest, "learners": plan}), encoding="utf-8"
         )
@@ -82,7 +109,7 @@ def simulate_learners(args):
     if args.dry_run:
         return
     remote = docker.copy_in(_write_temp_json({"learners": plan}, "attempt_plan.json"))
-    result = docker.run_php("inject_attempts.php", content.COURSE_SHORTNAME, remote)
+    result = docker.run_php("inject_attempts.php", args.shortname, remote)
     print(
         f"\nMoodle now holds {result['simulated_users']} simulated learners; this run added "
         f"{result['attempts_added']:,} attempts ({result['answers_added']:,} answers)."
@@ -117,7 +144,7 @@ def annotate_plan(args):
 
     source = Path(args.plan)
     stored = json.loads(source.read_text(encoding="utf-8"))
-    structure = docker.run_php("export_structure.php", content.COURSE_SHORTNAME)
+    structure = docker.run_php("export_structure.php", args.shortname)
     users = {int(k): int(v) for k, v in docker.run_php("export_simulated_users.php")["users"].items()}
     try:
         annotated = annotate(stored, structure, users)
@@ -145,10 +172,30 @@ def remove_simulated(args):
 
 
 def check_content(args):
-    spec = content.build_spec()
+    spec = content.build_spec(layout=args.layout)
     print(
-        f"Content is valid: {len(spec['units'])} units, {len(spec['kcs'])} KCs, "
+        f"Content is valid for layout {args.layout}: {len(spec['units'])} units, {len(spec['kcs'])} KCs, "
         f"{len(spec['questions'])} questions, {len(spec['lessons'])} lessons."
+    )
+
+
+def _layout_option(parser):
+    parser.add_argument(
+        "--layout",
+        choices=content.LAYOUTS,
+        default=content.DEFAULT_LAYOUT,
+        help="kc: one lesson + one 4-5 question check quiz per KC, KCs attached as "
+        f"competencies (course {content.KC_COURSE_SHORTNAME}, default); dimension: one "
+        f"quiz per unit and dimension (course {content.COURSE_SHORTNAME}, course 10)",
+    )
+
+
+def _shortname_option(parser):
+    parser.add_argument(
+        "--shortname",
+        default=content.KC_COURSE_SHORTNAME,
+        help=f"course to work on (default {content.KC_COURSE_SHORTNAME}; "
+        f"plans of course 10 need {content.COURSE_SHORTNAME})",
     )
 
 
@@ -168,6 +215,7 @@ def main(argv=None):
         action="store_true",
         help="delete the existing course (and every attempt in it) first",
     )
+    _layout_option(build)
     build.set_defaults(run=build_course)
 
     sim = commands.add_parser(
@@ -194,6 +242,14 @@ def main(argv=None):
         "answer's gain (generator assumption; 0 = lessons have no effect)",
     )
     sim.add_argument(
+        "--session-scale",
+        type=float,
+        default=3.5,
+        help="mean sessions per learner is about 1 + 2 * scale; one session is one "
+        "quiz attempt (generator assumption; changing it changes the data volume)",
+    )
+    _shortname_option(sim)
+    sim.add_argument(
         "--data-dir",
         type=Path,
         help="collector output directory that receives the plan manifest "
@@ -208,14 +264,15 @@ def main(argv=None):
     )
     annotate.add_argument("--plan", required=True, help="plan file written by --plan-out")
     annotate.add_argument("--out", help="default: <plan>.annotated.json next to it")
+    _shortname_option(annotate)
     annotate.set_defaults(run=annotate_plan)
 
     commands.add_parser(
         "remove-simulated", help="delete simulated learners and their attempts"
     ).set_defaults(run=remove_simulated)
-    commands.add_parser(
-        "check-content", help="validate the course content"
-    ).set_defaults(run=check_content)
+    check = commands.add_parser("check-content", help="validate the course content")
+    _layout_option(check)
+    check.set_defaults(run=check_content)
 
     for command in commands.choices.values():
         command.add_argument(

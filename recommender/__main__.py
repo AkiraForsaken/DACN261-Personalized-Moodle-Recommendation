@@ -32,7 +32,7 @@ def main(argv=None):
     gen.add_argument(
         "--policy",
         default="rules",
-        choices=["rules", "course_order", "popularity", "random"],
+        choices=["rules", "course_order", "popularity", "random", "content_based", "item_cf"],
         help="'rules' is the recommender; the others are evaluation baselines",
     )
     gen.add_argument(

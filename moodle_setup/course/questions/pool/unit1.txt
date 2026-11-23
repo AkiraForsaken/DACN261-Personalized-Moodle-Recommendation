@@ -1,0 +1,50 @@
+# Practice pool, Unit 1 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC001 | 1 | Choose the correct form: "Our teacher ___ the door at eight." | opens | open | opening | to open
+KC001 | 2 | Choose the correct form: "The baby ___ a lot at night." | cries | cry | crys | cryes
+KC001 | 3 | Which sentence has no mistake? | My uncle fixes cars and washes them on Sundays. | My uncle fixs cars and washes them on Sundays. | My uncle fixes cars and wash them on Sundays. | My uncle fix cars and washes them on Sundays.
+KC001 | 3 | Choose the correct form: "Nobody in my class ___ to school on Saturdays." | goes | go | gos | going
+KC002 | 1 | Choose the correct form: "I ___ like getting up early." | don't | doesn't | not | am not
+KC002 | 2 | Choose the correct form: "My cat ___ eat fish." | doesn't | don't | isn't | not
+KC002 | 3 | Make the sentence negative: "Sam watches the news every night." | Sam doesn't watch the news every night. | Sam doesn't watches the news every night. | Sam don't watch the news every night. | Sam not watches the news every night.
+KC002 | 3 | Choose the correct form: "The bus ___ stop here on Sundays, so we walk." | doesn't | don't | isn't | aren't
+KC003 | 1 | Choose the correct form: "___ he play tennis on Fridays?" | Does | Do | Is | Has
+KC003 | 2 | Choose the correct form: "___ your parents live near you?" | Do | Does | Are | Is
+KC003 | 3 | Which question is correct? | What time does your sister finish work? | What time does your sister finishes work? | What time do your sister finish work? | What time your sister finishes work?
+KC003 | 3 | Choose the correct short answer: "Does your flat have a balcony?" | No, it doesn't. | No, it don't. | No, it hasn't. | No, it isn't.
+KC004 | 1 | Which sentence has the correct word order? | They never eat meat. | They eat never meat. | Never they eat meat. | They eat meat never.
+KC004 | 2 | Which sentence has the correct word order? | I am usually tired on Monday mornings. | I usually am tired on Monday mornings. | Usually I tired am on Monday mornings. | I am tired on usually Monday mornings.
+KC004 | 3 | Put "always" in the correct place: "She can find a parking space near the office." | She can always find a parking space near the office. | She always can find a parking space near the office. | She can find always a parking space near the office. | She can find a parking always space near the office.
+KC004 | 3 | Which question has the correct word order? | Do you often work late? | Do often you work late? | Often do you work late? | Do you work often late?
+KC029 | 1 | Which verb completes the sentence? "I ___ my face with cold water." | wash | brush | comb | dress
+KC029 | 2 | Which verb completes the sentence? "He ___ every morning, so he has no beard." | shaves | combs | brushes | dries
+KC029 | 3 | Which pair of words completes the sentence? "After my shower, I ___ myself with a towel and ___ my teeth." | dry ... brush | wash ... comb | brush ... dry | comb ... wash
+KC029 | 3 | Which activity does NOT belong to a morning hygiene routine? | catching the bus | flossing your teeth | shaving | washing your face
+KC030 | 1 | Which verb completes the sentence? "I ___ to work by car." | drive | ride | catch | board
+KC030 | 2 | Which verb completes the sentence? "We ___ on the bus at the first stop." | get | take | ride | catch
+KC030 | 3 | Which verb completes the sentence? "If you ___ the 8:10 train, you will be late." | miss | lose | leave | pass
+KC030 | 3 | Which verb completes the sentence? "She ___ the underground to the city centre every day." | takes | gets | goes | drives
+KC049 | 1 | Read the note: "At 7:00 I run. At 8:00 I eat breakfast." What does the person do first? | Run | Eat breakfast | Go to work | Sleep
+KC049 | 2 | Read the planner: "9:00 email. 10:30 coffee break. 11:00 client call. 13:00 lunch." What comes right after the coffee break? | The client call | Lunch | Email | The next coffee break
+KC049 | 3 | Read the note: "Before work, I walk the dog. I have breakfast after the walk but before I shower." What is the correct order? | Walk the dog, breakfast, shower | Breakfast, walk the dog, shower | Shower, breakfast, walk the dog | Walk the dog, shower, breakfast
+KC049 | 3 | Read the note: "Leo gets home at 18:00. Two hours later he cooks dinner, and he goes to bed three hours after that." What time does Leo go to bed? | 23:00 | 21:00 | 20:00 | 22:00
+KC050 | 1 | Read the timetable: "Library: Mon-Fri 9:00-17:00." What time does the library open? | 9:00 | 17:00 | 8:00 | 10:00
+KC050 | 2 | Read the schedule: "Wed 10:00 Doctor, Hill Clinic. Wed 15:00 Haircut, Style Studio." Where is the haircut? | Style Studio | Hill Clinic | At home | City Gym
+KC050 | 3 | Read the timetable: "Bus 5: 7:10, 7:40, 8:10. Bus 8: 7:25, 7:55." You arrive at the stop at 7:30. Which bus can you take first? | Bus 5 at 7:40 | Bus 8 at 7:25 | Bus 8 at 7:55 | Bus 5 at 8:10
+KC050 | 3 | Read the log: "Piano lesson: Saturdays 10:15-11:00." How long is each lesson? | 45 minutes | 15 minutes | One hour | One hour and fifteen minutes
+KC051 | 1 | Read the planner: "Every day: 7:00 walk the dog." What can you infer? | The person has a dog. | The person works at night. | The person has no pets. | The person never goes outside.
+KC051 | 2 | Read the log: "Mon-Fri: 8:30 arrive at school, 15:30 leave school." What can you infer? | The person goes to school on weekdays. | The person goes to school at weekends. | The person is on holiday. | The person works at night.
+KC051 | 3 | Read the planner: "Mon, Wed: 19:00 football training. Sat: 15:00 match." What can you infer? | The person plays in a football team. | The person only watches football on TV. | The person coaches a tennis club. | The person works on Saturday afternoons.
+KC051 | 3 | Read the timetable: "Mon-Fri: 13:00-13:20 lunch at desk. 18:30 leave office." What does this suggest? | The person has a busy working day. | The person works part-time in the mornings. | The person has long lunches at a restaurant. | The person finishes work at noon.
+KC073 | 1 | Which sentence is written correctly? | My friends live near the park. | My friends lives near the park. | My friends living near the park. | My friends is live near the park.
+KC073 | 2 | Which sentence is written correctly? | Each student brings a notebook to class. | Each student bring a notebook to class. | Each students bring a notebook to class. | Each student bringing a notebook to class.
+KC073 | 3 | Which sentence is written correctly? | The box of pencils is on the desk. | The box of pencils are on the desk. | The box of pencils be on the desk. | The boxes of pencil is on the desk.
+KC073 | 3 | Choose the best correction: "My sister and her husband works in a hospital and drives home together." | My sister and her husband work in a hospital and drive home together. | My sister and her husband works in a hospital and drive home together. | My sister and her husband work in a hospital and drives home together. | My sister and her husband working in a hospital and driving home together.
+KC074 | 1 | Which sentence is written correctly? | I never drink coffee at night. | I drink never coffee at night. | Never I drink coffee at night. | I drink coffee never at night.
+KC074 | 2 | Which sentence is written correctly? | On Sundays we usually visit my grandparents. | On Sundays we visit usually my grandparents. | On Sundays we visit my usually grandparents. | On usually Sundays we visit my grandparents.
+KC074 | 3 | Choose the best revision: "She has often to work at weekends." | She often has to work at weekends. | She has often to work at weekends. | Often she has to working at weekends. | She has to working often at weekends.
+KC074 | 3 | Which sentence is written correctly? | My brother doesn't usually get up before nine. | My brother usually doesn't gets up before nine. | My brother doesn't get usually up before nine. | My brother don't usually get up before nine.
+KC075 | 1 | Choose the best connector to start a routine: "___, I wake up at seven." | First | Finally | Then | After that
+KC075 | 2 | Choose the best connector: "I have lunch at one. ___, I go back to the office." | Afterwards | First | Because | But
+KC075 | 3 | Which paragraph uses connectors in a logical order? | First, I shower. Next, I get dressed. Finally, I leave. | Finally, I shower. Next, I get dressed. First, I leave. | Next, I shower. First, I get dressed. Finally, I leave. | First, I shower. Finally, I get dressed. Next, I leave.
+KC075 | 3 | Which sentence correctly links two steps of a routine? | After I finish breakfast, I brush my teeth. | After finish breakfast, I brush my teeth. | After I finish breakfast, and I brush my teeth. | After I finish breakfast, then and I brush my teeth.

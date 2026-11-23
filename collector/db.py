@@ -6,6 +6,7 @@ connection itself, so it can be exercised with a fake cursor in tests.
 """
 
 import csv
+import json
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,6 +62,14 @@ def write_csv(filename, rows, fieldnames):
         writer.writeheader()
         writer.writerows(rows)
     print(f"Wrote {len(rows):,} rows -> {path}")
+
+
+def write_json(filename, payload):
+    directory = output_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / filename
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"Wrote {path}")
 
 
 def table_exists(cursor, table_name):

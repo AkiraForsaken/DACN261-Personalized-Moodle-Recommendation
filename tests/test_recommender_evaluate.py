@@ -2,6 +2,7 @@
 
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -60,6 +61,23 @@ def test_agreement_counts_only_learners_active_in_the_horizon():
     assert result["hit"] == 2
     assert result["reciprocal_rank_sum"] == pytest.approx(0.5 + 1.0)
     assert result["first_next_hit"] == 1  # a's first next activity (2) is in a's list
+
+
+def test_precision_recall_ndcg_at_k():
+    recs = _recs(
+        [
+            ("a", 1, 7, None, schemas.CONTINUE_COURSE),
+            ("a", 2, 2, None, schemas.CONTINUE_COURSE),
+            ("b", 1, 3, None, schemas.CONTINUE_COURSE),
+        ]
+    )
+    result = agreement_metrics(recs, {"a": [2], "b": [9, 3]}, k=2)
+    # a: hit at rank 2 of 2 (1 relevant); b: hit at rank 1 (2 relevant).
+    assert result["precision_sum"] == pytest.approx(0.5 + 0.5)
+    assert result["recall_sum"] == pytest.approx(1.0 + 0.5)
+    ndcg_a = (1 / np.log2(3)) / 1.0
+    ndcg_b = 1.0 / (1.0 + 1 / np.log2(3))
+    assert result["ndcg_sum"] == pytest.approx(ndcg_a + ndcg_b)
 
 
 def test_targeting_compares_flagged_kcs_with_the_learners_other_known_kcs():

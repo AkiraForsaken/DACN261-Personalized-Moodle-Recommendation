@@ -106,7 +106,7 @@ run it deliberately when `status` says the data is ready.
   (`moodle-setup.py simulate-learners`, see
   [moodle_setup/README.md](../moodle_setup/README.md)). They reach the engine
   through the collector, which writes the same manifest when an export holds
-  `SIM-` accounts. `train` records the generator's AUC over *all* its answers
+  simulated accounts (Moodle ID number starting with `SIM-`). `train` records the generator's AUC over *all* its answers
   (`oracle_auc_all_answers`, from `simulation_plan_manifest.json`); it is not
   comparable with the gate's AUCs, which cover the held-out targets only.
 
@@ -143,7 +143,6 @@ requires it to be identical to the stored plan, then adds `p_correct` per
 answer and `moodle_userid` per learner. New plans record `p_correct` and all
 generator settings directly.
 
-Results on the test course: [docs/test_course_results.md](../docs/test_course_results.md).
 Report the oracle on the gate's targets, never the all-answer value next to
 the gate's AUCs.
 
@@ -153,6 +152,7 @@ the gate's AUCs.
   models could reach *on this generator*; for real learners there is no such
   bound, and none may be reported.
 - BKT parameters are fixed configuration values, not fitted to the course.
+  (`bkt.fit_bkt_params` fits them per KC, but only the benchmark uses it.)
 - Readiness thresholds and the gate margin are configuration choices.
 - The simulator's answer model is not BKT, so the gate is not rigged, but
   results on simulated learners show only that the pipeline works. They are

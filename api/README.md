@@ -64,7 +64,7 @@ with the job id. A failed job answers 502 with its error.
   CLI import. If a learner update cannot apply (no snapshot yet, question
   mapping changed), the plugin asks for a full run instead.
 
-## Moodle side (`local_microlearning` 0.3.0)
+## Moodle side (`local_microlearning`)
 
 - Settings `engineurl`, `enginetoken`, `enginetimeout` (forced in the local
   `moodle/config.php` from the container's `API_TOKEN`).
@@ -80,5 +80,4 @@ with the job id. A failed job answers 502 with its error.
 ## Tests and verification
 
 `tests/test_api.py` covers authentication, refresh and full run with the real
-model stages, the bundle zip, batching and failures. What was checked live
-against a running Moodle: [docs/test_course_results.md](../docs/test_course_results.md).
+model stages, the bundle zip, batching and failures.

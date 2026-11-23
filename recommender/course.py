@@ -2,9 +2,17 @@
 
 Built from two collector exports, with no hand-maintained mapping:
 
-    activity_catalog.csv   every course module, in course order (``sequence``)
+    activity_catalog.csv   every course module, in course order (``sequence``),
+                           with each quiz's ``quiz_role`` (check, practice,
+                           checkin, review, challenge; missing = check)
     kc_activity_map.csv    KC -> lesson (role ``learn``) and KC -> quiz that
                            practises it (role ``practice``)
+
+A KC's quiz (``quiz_of_kc``, the one a failure is retried in and that marks
+the KC as passed) is always a check quiz. Practice and challenge quizzes of a
+KC are kept apart (``practice_of_kc``, ``challenge_of_kc``); check-in and
+review quizzes are reachable only through course order. A course without
+quiz roles has only check quizzes.
 
 Only activities a learner can be sent to are kept: visible, and tracked for
 completion when the course uses completion tracking (which excludes the forum
@@ -17,6 +25,9 @@ import pandas as pd
 
 ROLE_LEARN = "learn"
 ROLE_PRACTICE = "practice"
+# Quiz roles (collector.collect_activities.quiz_role).
+QUIZ_CHECK, QUIZ_PRACTICE, QUIZ_CHECKIN = "check", "practice", "checkin"
+QUIZ_REVIEW, QUIZ_CHALLENGE = "review", "challenge"
 NON_LEARNING_TYPES = {"forum", "qbank", "label"}
 
 
@@ -37,11 +48,33 @@ class CourseGraph:
     activities: list  # recommendable activities, in course order
     by_module: dict = field(default_factory=dict)  # module_id -> Activity
     lesson_of_kc: dict = field(default_factory=dict)  # kc_id -> lesson module_id
-    quiz_of_kc: dict = field(default_factory=dict)  # kc_id -> practice quiz module_id
-    kcs_of_quiz: dict = field(default_factory=dict)  # quiz module_id -> [kc_id]
+    quiz_of_kc: dict = field(default_factory=dict)  # kc_id -> check quiz module_id
+    kcs_of_quiz: dict = field(default_factory=dict)  # quiz module_id -> [kc_id], any role
+    role_of_quiz: dict = field(default_factory=dict)  # quiz module_id -> quiz role
+    practice_of_kc: dict = field(default_factory=dict)  # kc_id -> practice quiz module_id
+    challenge_of_kc: dict = field(default_factory=dict)  # kc_id -> challenge quiz module_id
+    checkin_of_section: dict = field(default_factory=dict)  # section -> check-in module_id
     kc_of_lesson: dict = field(default_factory=dict)  # lesson module_id -> kc_id
     kc_names: dict = field(default_factory=dict)  # kc_id -> name
     kc_dimension: dict = field(default_factory=dict)  # kc_id -> dimension (grammar, ...)
+
+    def quiz_role(self, module_id):
+        """Role of a quiz (``check`` when unknown); None for other activities."""
+        activity = self.by_module.get(module_id)
+        if activity is None or activity.activity_type != "quiz":
+            return None
+        return self.role_of_quiz.get(module_id, QUIZ_CHECK)
+
+    def is_check_quiz(self, module_id):
+        return self.quiz_role(module_id) == QUIZ_CHECK
+
+    def check_quizzes(self):
+        """Check quizzes with KCs, in course order."""
+        return [
+            activity.module_id
+            for activity in self.activities
+            if activity.module_id in self.kcs_of_quiz and self.is_check_quiz(activity.module_id)
+        ]
 
     def unit_of_kc(self, kc_id):
         """The course section of the KC's lesson, or None."""
@@ -121,9 +154,23 @@ def build_course_graph(activity_catalog, kc_activity_map, kc_names=None, kc_dime
         )
         for row in catalog.itertuples(index=False)
     ]
+    roles = (
+        {
+            int(module_id): (str(role).strip() or QUIZ_CHECK)
+            for module_id, role, kind in zip(
+                catalog["course_module_id"],
+                catalog["quiz_role"].fillna(""),
+                catalog["activity_type"].astype(str),
+            )
+            if kind == "quiz"
+        }
+        if "quiz_role" in catalog.columns
+        else {}
+    )
     graph = CourseGraph(
         activities=activities,
         by_module={activity.module_id: activity for activity in activities},
+        role_of_quiz=roles,
         kc_names={str(k): str(v) for k, v in (kc_names or {}).items()},
         kc_dimension={str(k): str(v) for k, v in (kc_dimension or {}).items() if v},
     )
@@ -155,8 +202,17 @@ def build_course_graph(activity_catalog, kc_activity_map, kc_names=None, kc_dime
         ["_questions", "_sequence"], ascending=[False, True], kind="mergesort"
     )
     for row in practice.itertuples(index=False):
-        # A KC practised in several quizzes: the one with most of its questions.
-        graph.quiz_of_kc.setdefault(row.kc_id, row.course_module_id)
+        role = graph.quiz_role(row.course_module_id)
+        if role == QUIZ_CHECK:
+            # A KC checked in several quizzes: the one with most of its questions.
+            graph.quiz_of_kc.setdefault(row.kc_id, row.course_module_id)
+        elif role == QUIZ_PRACTICE:
+            graph.practice_of_kc.setdefault(row.kc_id, row.course_module_id)
+        elif role == QUIZ_CHALLENGE:
+            graph.challenge_of_kc.setdefault(row.kc_id, row.course_module_id)
     for row in practice.sort_values("kc_id", kind="mergesort").itertuples(index=False):
         graph.kcs_of_quiz.setdefault(row.course_module_id, []).append(row.kc_id)
+    for activity in graph.activities:
+        if graph.quiz_role(activity.module_id) == QUIZ_CHECKIN:
+            graph.checkin_of_section.setdefault(activity.section, activity.module_id)
     return graph

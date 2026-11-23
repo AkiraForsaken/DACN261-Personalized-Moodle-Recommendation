@@ -9,6 +9,10 @@ did in the following ``horizon``.
 
 WHAT THE NUMBERS MEAN (and do not)
 
+    precision / recall / ndcg @K the standard top-K ranking metrics over the
+                                 same relevant set: the activities the learner
+                                 opened in the horizon (binary relevance).
+                                 Same caveat as hit / mrr.
     hit / mrr / first_next_hit   agreement with what learners did next. On
                                  simulated learners the simulator's own habits
                                  ("revise after failing") are baked in, so a
@@ -106,29 +110,44 @@ def next_activities(log, cutoff, horizon_seconds):
     return result
 
 
-def agreement_metrics(recommendations, upcoming):
-    """Hit, MRR and first-next hit over learners who were active in the horizon."""
+def agreement_metrics(recommendations, upcoming, k=config.TOP_N):
+    """Hit, MRR, first-next hit and P/R/NDCG@k over learners active in the horizon.
+
+    Relevant items are the activities a learner opened in the horizon (binary
+    relevance). Precision divides by k even when a list is shorter, recall by
+    the number of relevant activities, and NDCG uses the ideal DCG of
+    min(k, relevant) hits. Sums are returned; ``summarize`` divides them by
+    the number of active learners.
+    """
     lists = {
         learner_id: group.sort_values("rank")["course_module_id"].astype(int).tolist()
         for learner_id, group in recommendations.groupby("learner_id", sort=False)
     }
     hits, reciprocal, first_hits, evaluated = 0, 0.0, 0, 0
+    precision, recall, ndcg = 0.0, 0.0, 0.0
     for learner_id, done in upcoming.items():
         recommended = lists.get(learner_id)
         if not recommended:
             continue
         evaluated += 1
         done_set = set(done)
-        ranks = [rank for rank, module in enumerate(recommended, 1) if module in done_set]
+        ranks = [rank for rank, module in enumerate(recommended[:k], 1) if module in done_set]
         if ranks:
             hits += 1
             reciprocal += 1.0 / ranks[0]
-        first_hits += done[0] in recommended
+        first_hits += done[0] in recommended[:k]
+        precision += len(ranks) / k
+        recall += len(ranks) / len(done_set)
+        ideal = sum(1.0 / np.log2(i + 1) for i in range(1, min(k, len(done_set)) + 1))
+        ndcg += sum(1.0 / np.log2(rank + 1) for rank in ranks) / ideal
     return {
         "active_learners": evaluated,
         "hit": hits,
         "reciprocal_rank_sum": reciprocal,
         "first_next_hit": first_hits,
+        "precision_sum": precision,
+        "recall_sum": recall,
+        "ndcg_sum": ndcg,
     }
 
 
@@ -330,7 +349,7 @@ def evaluate(
                             "cutoff_utc": pd.Timestamp(cutoff, unit="s", tz="UTC").isoformat(),
                             "policy": policy,
                             **coverage_metrics(frame, learner_ids),
-                            **agreement_metrics(frame, scoped_upcoming),
+                            **agreement_metrics(frame, scoped_upcoming, top_n),
                             **targeting_metrics(
                                 frame, answers[answers["learner_id"].isin(learner_ids)], cutoff
                             ),
@@ -390,6 +409,9 @@ def summarize(metrics):
                 "hit_at_n": _rate(total["hit"], total["active_learners"]),
                 "mrr": _rate(total["reciprocal_rank_sum"], total["active_learners"]),
                 "first_next_hit": _rate(total["first_next_hit"], total["active_learners"]),
+                "precision_at_n": _rate(total["precision_sum"], total["active_learners"]),
+                "recall_at_n": _rate(total["recall_sum"], total["active_learners"]),
+                "ndcg_at_n": _rate(total["ndcg_sum"], total["active_learners"]),
                 "share_learners_personalised": _rate(
                     total["learners_with_personalised_item"], total["learners"]
                 ),
@@ -463,6 +485,12 @@ def render_report(summary, manifest):
         "",
         *_table(summary, ["estimator", "policy", "active_learner_cutoffs", "hit_at_n", "mrr", "first_next_hit"]),
         "",
+        "Standard top-N ranking metrics over the same relevant set (the activities",
+        "opened in the horizon, binary relevance): precision, recall and NDCG at N.",
+        "Same caveat: they measure agreement with the simulator's navigation.",
+        "",
+        *_table(summary, ["estimator", "policy", "precision_at_n", "recall_at_n", "ndcg_at_n"]),
+        "",
         "## Were the flagged KCs really weak?",
         "",
         "Later accuracy on KCs named by remediation items against the learner's other",
@@ -496,6 +524,10 @@ def render_report(summary, manifest):
         "- Flagged KCs are chosen for low past accuracy, so part of their lower later",
         "  accuracy is the KC simply being harder for everyone, not this learner's gap.",
         "- Any effect of lessons on simulated answers is a generator assumption.",
+        "- content_based and item_cf are reference implementations of their families",
+        "  (KC dimension/unit similarity; item-item cosine within one population),",
+        "  untuned, with explicit fallbacks (course order / popularity) for learners",
+        "  without answers or history.",
         "",
     ]
     return "\n".join(lines)

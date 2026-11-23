@@ -75,6 +75,7 @@ def annotate_plan(stored, structure, users):
         structure["quizzes"],
         lessons=structure.get("lessons") or {},
         overviews=structure.get("overviews") or {},
+        items=structure.get("items") or {},
         **settings,
     )
     if _strip(regenerated) != _strip(stored["learners"]):

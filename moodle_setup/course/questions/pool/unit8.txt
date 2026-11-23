@@ -1,0 +1,50 @@
+# Practice pool, Unit 8 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC025 | 1 | Choose the correct form: "___ your hands before you eat." | Wash | Washes | Washing | To washing
+KC025 | 2 | Which sentence is a correct instruction? | Keep the bandage dry for two days. | You keeping the bandage dry for two days. | Keeps the bandage dry for two days. | Keeping dry the bandage two days.
+KC025 | 3 | Choose the correct pair: "___ the tablet with water, and ___ it." | Swallow ... don't chew | Swallow ... not chew | Swallowing ... don't chew | Swallow ... doesn't chew
+KC025 | 3 | Which instruction is correct and polite? | Please lie down and try to relax. | Please lying down and try to relax. | Please to lie down and try relax. | Please lies down and tries to relax.
+KC026 | 1 | Choose the correct form: "You ___ eat more vegetables." | should | should to | shoulds | shouldn't to
+KC026 | 2 | Choose the correct form: "You ___ stay up late before your exam." | shouldn't | should | had | ought
+KC026 | 3 | Choose the correct word: "It's very cold. You'd ___ wear a warm coat." | better | best | rather | should
+KC026 | 3 | Which sentence is a strong warning? | You'd better not drive after taking this medicine. | You could perhaps not drive after taking this medicine. | You might not drive after taking this medicine. | You'd rather not to drive after taking this medicine.
+KC027 | 1 | Choose the correct form: "If you ___ tired, go to bed early." | are | will be | be | were be
+KC027 | 2 | Choose the correct form: "If you eat too much sugar, you ___ problems with your teeth." | will have | have had | would had | having
+KC027 | 3 | Choose the correct form: "Unless you ___ the full course of antibiotics, the infection may come back." | finish | don't finish | will finish | finished not
+KC027 | 3 | Which sentence is correct? | If the fever doesn't go down by tomorrow, I'll call the doctor. | If the fever won't go down by tomorrow, I'll call the doctor. | If the fever doesn't go down by tomorrow, I called the doctor. | If the fever doesn't go down by tomorrow, I calling the doctor.
+KC028 | 1 | Choose the correct word: "Take ___ tablet in the morning." | one | ones | a ones | some
+KC028 | 2 | Choose the correct phrase: "Don't add ___ salt to your food." | too much | too many | a few | many
+KC028 | 3 | Choose the correct phrase: "There are only ___ tablets left, so I need a new prescription." | a few | a little | much | less
+KC028 | 3 | Which sentence is correct? | You should drink fewer sugary drinks and less coffee. | You should drink less sugary drinks and fewer coffee. | You should drink fewer sugary drinks and fewer coffee. | You should drink few sugary drinks and little coffees.
+KC047 | 1 | A pain in your stomach is a ___. | stomach ache | headache | toothache | backache
+KC047 | 2 | Small red spots on the skin are a ___. | rash | cough | sneeze | fever
+KC047 | 3 | What is a "sprain"? | An injury where a joint, such as an ankle, is twisted | A broken bone | A type of headache | A high temperature
+KC047 | 3 | Which word describes the feeling that the room is spinning? | dizziness | nausea | fatigue | swelling
+KC048 | 1 | Where do you buy medicine? | At a pharmacy | At a bakery | At a library | At a gym
+KC048 | 2 | What does a pharmacist do? | Prepares and sells medicines | Repairs cars | Teaches children | Cooks food
+KC048 | 3 | What is "over-the-counter" medicine? | Medicine you can buy without a prescription | Medicine only for children | Medicine given only in hospital | Medicine you must inject
+KC048 | 3 | Which instrument does a doctor use to listen to your heart? | A stethoscope | A thermometer | A syringe | A plaster
+KC070 | 1 | Read the label: "Take 1 tablet every morning." How many tablets do you take each day? | One | Two | Three | None
+KC070 | 2 | Read the label: "Take 2 tablets three times a day." How many tablets is that per day? | Six | Two | Three | Five
+KC070 | 3 | Read the label: "Take 1 tablet every 6 hours. Do not take more than 3 tablets in 24 hours." You took tablets at 8:00 and 14:00. Can you take another at 20:00? | Yes, it would be your third tablet | No, you already took three | No, you must wait 12 hours | Yes, and another one at 22:00
+KC070 | 3 | Read the label: "Adults: 10 ml. Children 6-12: half the adult dose." How much should a 9-year-old take? | 5 ml | 10 ml | 20 ml | 2.5 ml
+KC071 | 1 | Read the warning: "For external use only." What does this mean? | Use it only on the skin; do not swallow it | Drink it with water | Use it outside the house | Use it only in the morning
+KC071 | 2 | Read the warning: "Store in a cool, dry place." Where should you keep the medicine? | Somewhere cool and dry | Next to the shower | In a hot car | On a sunny windowsill
+KC071 | 3 | Read the warning: "Do not take with other products containing paracetamol." What is the risk? | Taking too much paracetamol | Becoming hungry | Feeling cold | Forgetting to take it
+KC071 | 3 | Read the warning: "Pregnant women should consult a doctor before use." What should a pregnant woman do? | Ask a doctor before taking it | Take a double dose | Never see a doctor | Take it only at night
+KC072 | 1 | Read the article: "Eat five portions of fruit and vegetables every day." What does the article recommend? | Eating fruit and vegetables daily | Eating only fruit | Avoiding vegetables | Eating once a day
+KC072 | 2 | Read the article: "Take a short break from your screen every hour to rest your eyes." Why should you take breaks? | To rest your eyes | To eat more | To save energy | To sleep better at work
+KC072 | 3 | Read the article: "Stretching after exercise is helpful, but stretching cold muscles before warming up can cause injury." What does the writer advise? | Warm up before you stretch | Never stretch | Stretch only cold muscles | Stretch instead of exercising
+KC072 | 3 | Read the article: "Many people think they need eight glasses of water a day, but needs vary with climate, activity and diet." What is the main idea? | Water needs are different for different people | Everyone needs exactly eight glasses | Climate does not matter | Diet is more important than water
+KC094 | 1 | Which sentence describes a symptom? | My throat hurts. | I like tea. | It is sunny. | My doctor is nice.
+KC094 | 2 | Which sentence says how bad the pain is? | The pain is very strong at night. | I have pain. | Pain is bad. | Night is dark.
+KC094 | 3 | Which sentence is correct for a doctor's form? | I have had a rash on my arm for three days. | I have a rash on my arm since three days. | I am having a rash on my arm for three days ago. | I had a rash on my arm since three days.
+KC094 | 3 | Which description gives the doctor the most useful information? | The pain started yesterday after lifting a box and gets worse when I bend forward. | My back is bad. | Pain, back, yesterday. | It hurts sometimes maybe.
+KC095 | 1 | Which item fits a wellness plan? | Go to bed by 11 pm every night. | Beds are soft. | Night is late. | Sleeping exists.
+KC095 | 2 | Which sentence gives advice correctly? | You should eat breakfast every day. | You should to eat breakfast every day. | You should eating breakfast every day. | You shoulds eat breakfast every day.
+KC095 | 3 | Which plan item is the most specific and measurable? | Walk 8,000 steps a day, five days a week. | Be more active. | Walk sometimes. | Try to move a lot.
+KC095 | 3 | Which sentence is correct? | It's important to drink water regularly during exercise. | It's important drink water regularly during exercise. | It's important to drinking water regularly during exercise. | It's important that drink water regularly during exercise.
+KC096 | 1 | Which sentence asks for an appointment? | Can I make an appointment for Monday? | I am Monday. | Appointments are good. | Doctor Monday?
+KC096 | 2 | Complete the request: "I would like to ___ my appointment to Friday." | change | changing | changed | to change
+KC096 | 3 | Which sentence best explains the reason for an appointment request? | I would like an appointment because I have had a persistent cough for two weeks. | I want to see you. | Appointment please now. | I am ill, I think, maybe.
+KC096 | 3 | Which sentence politely asks to cancel an appointment? | Unfortunately, I need to cancel my appointment on 4 June; could you offer me another date? | Cancel it. | I won't come, bye. | No appointment for me.

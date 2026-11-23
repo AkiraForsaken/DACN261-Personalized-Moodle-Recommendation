@@ -1,0 +1,50 @@
+# Practice pool, Unit 5 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC016 | 1 | Choose the correct word: "There are ___ eggs in the box." | some | much | a little | any much
+KC016 | 2 | Choose the correct word: "We don't have ___ bread left." | much | many | a few | few of
+KC016 | 3 | Choose the correct word: "Only ___ people came, so there was plenty of food." | a few | a little | much | any
+KC016 | 3 | Which sentence is correct? | Could I have a little more rice, please? | Could I have a few more rice, please? | Could I have many more rice, please? | Could I have a little more rices, please?
+KC017 | 1 | Which order is polite? | Can I have a coffee, please? | Coffee. Now. | I want coffee. | You give coffee.
+KC017 | 2 | Complete the order: "I'd ___ the chicken, please." | like | likes | liking | to like
+KC017 | 3 | The waiter asks, "Are you ready to order?" Which reply is best? | Yes, I'll have the vegetable soup, please. | Yes, I having the vegetable soup. | Yes, give vegetable soup. | Yes, I will to have the vegetable soup.
+KC017 | 3 | Which question politely asks for a recommendation? | What would you recommend? | What you recommend? | Recommend me something now. | What do you recommending?
+KC018 | 1 | Choose the correct form: "This cake is ___ than the cookies." | sweeter | more sweet | sweetest | most sweet
+KC018 | 2 | Choose the correct form: "The soup here is ___ than at home." | saltier | more salty than | saltyer | most salty
+KC018 | 3 | Choose the correct form: "This portion is ___ than I expected; I can't finish it." | much bigger | more bigger | much big | very bigger
+KC018 | 3 | Which sentence is correct? | The coffee here is less strong than in Italy. | The coffee here is less stronger than in Italy. | The coffee here is fewer strong than in Italy. | The coffee here is less strong that in Italy.
+KC038 | 1 | To ___ vegetables means to cut them into small pieces. | chop | boil | fry | bake
+KC038 | 2 | Bread and cakes are usually cooked in an oven. This is called ___. | baking | steaming | grilling | frying
+KC038 | 3 | To cook food gently in liquid that is just below boiling is to ___ it. | simmer | grill | roast | toast
+KC038 | 3 | Which word means to mix food quickly with a fork or whisk, for example eggs? | beat | slice | peel | grate
+KC039 | 1 | What do you read to choose your food in a restaurant? | The menu | The receipt | The tip | The bill
+KC039 | 2 | What is a "service charge"? | An extra amount added to the bill for service | A free drink | A discount for children | A type of dessert
+KC039 | 3 | What does it mean to "split the bill"? | To share the cost between several people | To pay twice | To ask for a discount | To pay with a card
+KC039 | 3 | What is a "set menu"? | A fixed choice of courses for a fixed price | A menu written in another language | A menu for drinks only | A list of opening hours
+KC040 | 1 | A person who does not eat meat is a ___. | vegetarian | baker | waiter | butcher
+KC040 | 2 | "Dairy-free" food does not contain ___. | milk products | vegetables | salt | water
+KC040 | 3 | Someone who is "lactose intolerant" ___. | has problems digesting milk sugar | cannot eat any vegetables | only eats fish | is allergic to wheat
+KC040 | 3 | Which dish is suitable for a vegan? | Lentil curry with rice | Cheese omelette | Chicken soup | Yoghurt with honey
+KC061 | 1 | Read the menu: "Tomato Soup - tomatoes, onion, garlic, cream." Which ingredient is in the soup? | Garlic | Potato | Chicken | Rice
+KC061 | 2 | Read the menu: "Club Sandwich - chicken, bacon, lettuce, tomato, mayonnaise." Who should NOT order this? | Someone who does not eat pork | Someone who likes chicken | Someone who wants a sandwich | Someone who eats tomatoes
+KC061 | 3 | Read the menu: "Vegetable Stir-fry - rice noodles, vegetables, soy sauce, egg. Ask for it without egg." Can this dish be made vegan? | Yes, if you order it without egg | No, it contains meat | Yes, it is already vegan | No, it contains cheese
+KC061 | 3 | Read the menu: "Fish Pie - salmon, prawns, potato, milk, butter." Which guest should avoid it? | A guest with a shellfish allergy | A guest who likes potatoes | A guest who eats fish | A guest who does not want dessert
+KC062 | 1 | Read the label: "Contains: peanuts." Who should not eat this product? | People with a peanut allergy | People who like peanuts | Vegetarians | Children over five
+KC062 | 2 | Read the label: "Sugar: 25 g per 100 g." How much sugar is in 200 g of the product? | 50 g | 25 g | 100 g | 12.5 g
+KC062 | 3 | Read the label: "Per serving (30 g): 120 kcal. Pack contains 4 servings." How many calories are in the whole pack? | 480 kcal | 120 kcal | 30 kcal | 360 kcal
+KC062 | 3 | Read the label: "Made in a factory that also handles milk." What does this mean? | The product may contain small traces of milk | The product is made of milk | The product is safe for everyone with a milk allergy | Milk is the main ingredient
+KC063 | 1 | Read the review: "Delicious pizza and very cheap!" What does the reviewer like? | The pizza and the price | The music | The parking | The waiter's uniform
+KC063 | 2 | Read the review: "The view was amazing, but the food was cold." What was the problem? | The food was cold | The view | The price | The music
+KC063 | 3 | Read the review: "We waited 40 minutes for a table, yet once seated, the service was quick and the curry was excellent." What is the overall opinion? | Mostly positive, despite the wait | Completely negative | Only about the price | Only about the decoration
+KC063 | 3 | Read the review: "Portions are small for the price, though the dessert menu is creative." What does the reviewer criticise? | The value for money | The dessert menu | The creativity | The location
+KC085 | 1 | Which request is clear? | Please do not add sugar to my tea. | Tea no sugar maybe. | Sugar is bad. | Tea, sugar, no, please, yes.
+KC085 | 2 | Complete the request: "I am vegetarian, so please make sure the soup ___ meat stock." | doesn't contain | don't contain | not contains | isn't contain
+KC085 | 3 | Which sentence best explains an allergy in a booking email? | My daughter has a severe egg allergy, so please let us know which dishes are safe for her. | Eggs are bad for her sometimes. | No eggs or problems. | She eggs allergy.
+KC085 | 3 | Which sentence politely asks for a change to a dish? | Would it be possible to have the burger without the bun? | Burger no bun now. | I want the burger, but remove the bun quick. | The bun is not wanted by me ever.
+KC086 | 1 | Which written order is clear? | One cheese pizza and one lemonade, please. | Pizza something drink. | I want, pizza, maybe. | Cheese lemonade pizza one.
+KC086 | 2 | Complete the message: "Could we ___ a table for four at eight o'clock?" | book | booking | to book | booked
+KC086 | 3 | Which online order note is the most useful for the delivery driver? | Please ring the bell for flat 3B; the entrance is on the side street. | Come. | Food here. | Flat somewhere.
+KC086 | 3 | Which line from a written dialogue is a correct waiter question? | "Would you like anything to drink?" | "You want drink?" | "Would you like drinking?" | "Do you like anything to drink now?"
+KC087 | 1 | Which sentence gives a clear opinion in a review? | The pasta was delicious and fresh. | We ate food. | There was a table. | It was Tuesday.
+KC087 | 2 | Which sentence gives a reason for a rating? | I gave three stars because the service was slow. | I gave three stars. | Stars are good. | The restaurant has a name.
+KC087 | 3 | Which sentence best balances praise and criticism? | The starters were creative, although the main courses were rather bland. | Everything was perfect. | Everything was terrible. | We had starters and main courses.
+KC087 | 3 | Which sentence uses descriptive language effectively? | The chocolate cake was rich and moist, with a crunchy hazelnut layer. | The cake was good. | Cake. | The cake was a cake.

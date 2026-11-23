@@ -1,0 +1,50 @@
+# Practice pool, Unit 6 (layout kc). AI-drafted; review before use.
+# kc_id | difficulty (1-3) | stem | correct option | distractor | distractor | distractor
+KC019 | 1 | Choose the correct form: "My new bag is ___ than my old one." | bigger | more big | biggest | more bigger
+KC019 | 2 | Choose the correct form: "This sofa is ___ than the one in the window." | more comfortable | comfortabler | most comfortable | more comfortabler
+KC019 | 3 | Choose the correct form: "The second-hand bike is ___ than the new one." | worse | badder | more bad | worst
+KC019 | 3 | Which sentence is correct? | This store is farther from my house than the market. | This store is more far from my house than the market. | This store is farer from my house than the market. | This store is far from my house than the market.
+KC020 | 1 | Choose the correct form: "It is the ___ shop in the city." | biggest | bigger | most big | big
+KC020 | 2 | Choose the correct form: "This is the ___ interesting book in the shop." | most | more | best | much
+KC020 | 3 | Choose the correct form: "That was the ___ purchase I have ever made; it broke the next day." | worst | baddest | most bad | worse
+KC020 | 3 | Which sentence is correct? | This is the least expensive phone in the range. | This is the less expensive phone of all in the range. | This is the leastest expensive phone in the range. | This is the least expensivest phone in the range.
+KC021 | 1 | You are holding one apple. Choose the correct word: "How much is ___ apple?" | this | these | those | them
+KC021 | 2 | You point at two hats on a high shelf. Choose the correct word: "Can I see ___ hats, please?" | those | that | this | them
+KC021 | 3 | Choose the correct pair: "I don't like ___ shoes here; I prefer ___ ones over there." | these ... those | this ... that | those ... these | that ... this
+KC021 | 3 | A shop assistant hands you a jacket. You give it back and point at another one far away. What do you say? | No, thanks. Can I try that one instead? | No, thanks. Can I try this one instead? | No, thanks. Can I try those one instead? | No, thanks. Can I try these one instead?
+KC041 | 1 | Where do you try on clothes in a shop? | In the fitting room | At the till | In the stockroom | At the entrance
+KC041 | 2 | What is a "bargain"? | Something bought for less than its usual price | Something very expensive | A broken product | A shop assistant
+KC041 | 3 | A product is "out of stock". What does this mean? | The shop has none available at the moment | It is on sale | It is new | It is only sold online
+KC041 | 3 | What is a "voucher"? | A document you can use instead of money to buy goods | A list of products | A type of shopping bag | A receipt for a refund
+KC042 | 1 | Which payment method uses coins and notes? | Cash | Bank transfer | Credit card | Mobile wallet
+KC042 | 2 | What do you enter to confirm a card payment? | A PIN | A barcode | A receipt | A voucher
+KC042 | 3 | What is a "deposit" when you buy something expensive? | A first payment to reserve it, with the rest paid later | A refund | A discount code | The final payment
+KC042 | 3 | The screen says "Your card was declined." What does this mean? | The payment was not accepted | The payment was successful | You received a refund | The shop is closed
+KC043 | 1 | A cotton T-shirt is made of ___. | fabric | metal | glass | stone
+KC043 | 2 | Which word describes how heavy something is? | weight | height | length | width
+KC043 | 3 | A box is 40 cm long, 30 cm wide and 20 cm deep. What is its depth? | 20 cm | 30 cm | 40 cm | 90 cm
+KC043 | 3 | A product label says "100% stainless steel". Which product is it most likely to be? | A kitchen knife | A wool scarf | A paper notebook | A leather wallet
+KC064 | 1 | Read the sign: "Closed on Mondays." When can you NOT shop here? | On Mondays | On Sundays | Every day | On Fridays
+KC064 | 2 | Read the sign: "All books $5." You buy three books. How much do you pay? | $15 | $5 | $8 | $10
+KC064 | 3 | Read the sign: "20% off everything over $50." A jacket costs $60. What is the price after the discount? | $48 | $40 | $50 | $12
+KC064 | 3 | Read the sign: "Lamps $30 each. Buy one, get the second half price." You buy two lamps. How much do you pay? | $45 | $30 | $60 | $15
+KC065 | 1 | Read the notice: "No returns without a receipt." What do you need to return something? | A receipt | A shopping bag | A credit card | A coupon
+KC065 | 2 | Read the notice: "Exchanges within 14 days. No cash refunds." You bought shoes 10 days ago. What can you do? | Exchange them for another pair | Get your money back in cash | Nothing | Return them after 30 days
+KC065 | 3 | Read the notice: "Underwear and earrings cannot be returned for hygiene reasons." Which item can you NOT return? | Earrings | A coat | A lamp | A book
+KC065 | 3 | Read the notice: "Online orders may be returned in store within 28 days, but delivery charges are not refunded." You paid $40 plus $5 delivery and return the item on day 20. How much do you get back? | $40 | $45 | $5 | Nothing
+KC066 | 1 | Read the table: "Apples $2/kg. Pears $3/kg." Which fruit is cheaper? | Apples | Pears | Both are the same | Neither
+KC066 | 2 | Read the table: "Shop A: TV $450. Shop B: TV $420. Shop C: TV $480." Where is the TV cheapest? | Shop B | Shop A | Shop C | All the same
+KC066 | 3 | Read the table: "Pack of 6 batteries $9. Pack of 10 batteries $12." Which is cheaper per battery? | The pack of 10 | The pack of 6 | Both cost the same per battery | You cannot tell
+KC066 | 3 | Read the table: "Plan A: $20/month, 10 GB. Plan B: $25/month, 30 GB." You need at least 20 GB. Which plan do you choose? | Plan B | Plan A | Both plans | Neither plan
+KC088 | 1 | Which sentence explains a problem clearly? | The lamp I bought does not switch on. | The lamp is lamp. | Problem, lamp, bad. | I have a lamp.
+KC088 | 2 | Complete the request: "I would like a full ___ for the damaged item." | refund | refunding | refunded | to refund
+KC088 | 3 | Which sentence gives the details a shop needs to find your order? | I ordered a blue kettle (order no. 5521) on 2 March. | I ordered something once. | My order is somewhere. | Please find my order.
+KC088 | 3 | Which sentence is the most polite way to say you are unhappy? | I am disappointed with the quality and would appreciate a replacement. | This is rubbish, send another one now. | Bad product, bad shop. | I hate it, replace it.
+KC089 | 1 | Which sentence compares two products? | The red bag is bigger than the black bag. | The red bag is big. | The bags are bags. | I have a bag.
+KC089 | 2 | Complete the sentence: "Phone A has a better camera, ___ Phone B has a longer battery life." | whereas | because | so | for example
+KC089 | 3 | Which sentence is correct? | The silver model is not as heavy as the black one. | The silver model is not as heavier as the black one. | The silver model is not so heavy than the black one. | The silver model is not as heavy that the black one.
+KC089 | 3 | Which sentence summarises a comparison and makes a recommendation? | Since both have similar features, the cheaper one is the better choice. | Both have features. | One is cheaper. | I compared things.
+KC090 | 1 | Which expense line is clear? | Rent: $600 | Rent: a lot | Money for rent, maybe | Rent?
+KC090 | 2 | Choose the best heading for a list of what you spend each month. | Monthly expenses | My nice things | Shopping is fun | Numbers
+KC090 | 3 | Which sentence compares spending correctly? | I spent $50 less on food in April than in March. | I spent less food money April. | Food April less March $50. | April food was spending less.
+KC090 | 3 | Which sentence states a budget total correctly? | My total spending in May was $1,250, which is $100 over budget. | May spending was big. | I spent many money in May. | Total May: lots and more.

@@ -156,6 +156,86 @@ def next_answer_predictions(concepts, responses, params: BKTParams = DEFAULT_PAR
     return predictions
 
 
+# Coarse grid for fit_bkt_params; every combination keeps slip + guess < 1.
+FIT_GRID = {
+    "p_init": (0.1, 0.3, 0.5, 0.7, 0.9),
+    "p_learn": (0.01, 0.05, 0.1, 0.2, 0.3),
+    "p_slip": (0.05, 0.1, 0.2, 0.3),
+    "p_guess": (0.1, 0.2, 0.3, 0.4),
+}
+
+
+def _grid_arrays(grid):
+    mesh = np.array(
+        np.meshgrid(
+            *(
+                np.asarray(grid[k], float)
+                for k in ("p_init", "p_learn", "p_slip", "p_guess")
+            ),
+            indexing="ij",
+        )
+    ).reshape(4, -1)
+    keep = mesh[2] + mesh[3] < 1.0
+    return mesh[:, keep]
+
+
+def fit_bkt_params(
+    sequences_by_kc, grid=None, min_answers=30, fallback: BKTParams = DEFAULT_PARAMS
+):
+    """Per-KC BKT parameters by maximum likelihood over a coarse grid.
+
+    ``sequences_by_kc`` maps a KC key to a list of 0/1 outcome sequences (one
+    per learner, in answer order). Every grid point is scored at once on the
+    log-likelihood of the next-answer predictions (the same predictions
+    ``next_answer_predictions`` makes); no forgetting. A KC with fewer than
+    ``min_answers`` answers keeps ``fallback``. Returns ``{kc: BKTParams}``.
+
+    Used on the benchmark's TRAIN fold only; it does not change the course's
+    fixed defaults.
+    """
+    p0, pl, ps, pg = _grid_arrays(grid or FIT_GRID)
+    fitted = {}
+    for kc, seqs in sequences_by_kc.items():
+        if sum(len(s) for s in seqs) < min_answers:
+            fitted[kc] = fallback
+            continue
+        loglik = np.zeros(p0.shape[0])
+        for seq in seqs:
+            p = p0.copy()
+            for outcome in seq:
+                pred = np.clip(p * (1 - ps) + (1 - p) * pg, 1e-9, 1 - 1e-9)
+                if outcome:
+                    loglik += np.log(pred)
+                    post = p * (1 - ps) / pred
+                else:
+                    loglik += np.log(1 - pred)
+                    post = p * ps / (1 - pred)
+                p = post + (1 - post) * pl
+        best = int(np.argmax(loglik))
+        fitted[kc] = BKTParams(
+            p_init=float(p0[best]),
+            p_learn=float(pl[best]),
+            p_slip=float(ps[best]),
+            p_guess=float(pg[best]),
+            p_forget=0.0,
+        )
+    return fitted
+
+
+def next_answer_predictions_by_kc(
+    concepts, responses, params_by_kc, fallback: BKTParams = DEFAULT_PARAMS
+):
+    """``next_answer_predictions`` with one parameter set per KC."""
+    known, predictions = {}, []
+    for concept, response in zip(concepts, responses):
+        params = params_by_kc.get(concept, fallback)
+        p = known.get(concept, params.p_init)
+        predicted, _, nxt = bkt_step(p, bool(response), params)
+        predictions.append(predicted)
+        known[concept] = nxt
+    return predictions
+
+
 def estimate_states(
     events,
     kc_catalog,

@@ -21,6 +21,13 @@ Two non-neural baselines are scored on exactly the same targets:
 
 Usage (project root):
     python knowledge_tracing/evaluate.py [--models dkt akt sakt]
+    python knowledge_tracing/evaluate.py --models dkt sakt akt dkvmn saint --from-dumps dkt sakt akt
+
+--from-dumps scores the named models from prediction dumps already in
+evaluation/predictions/ (with each seed's run_summary.json) instead of re-running
+inference. It is for runs whose checkpoints were not kept (the EdNet DKT/SAKT/AKT
+runs on Colab); the dump must hold exactly this test fold's targets, which is
+checked against the target count, and the table says which models were scored so.
 
 Outputs in knowledge_tracing/artifacts/evaluation/ :
     test_comparison.md / .csv / .json   and   predictions/<model>_seed<k>_test_predictions.txt
@@ -31,6 +38,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -62,15 +70,21 @@ def metrics_for(y_true: np.ndarray, y_prob: np.ndarray) -> dict:
     }
 
 
+# Under numpy >= 2, pyKT's dump prints the per-sequence AUC/ACC as `np.float64(0.86)`
+# (Colab, and .venv-kt since numpy 2), which literal_eval cannot read.
+_NP_SCALAR = re.compile(r"np\.(?:float|int)(?:16|32|64)\(([^()]*)\)")
+
+
 def parse_predictions(path: Path) -> tuple[np.ndarray, np.ndarray]:
     """Read pyKT's per-sequence prediction dump: [qs, rs, ds, ts, ps, prelabels, auc, acc] per line."""
     ts, ps = [], []
     for line in path.read_text().splitlines():
         if not line.strip():
             continue
-        # The per-sequence AUC field is the string `nan` when a learner's targets are all
-        # one class; literal_eval cannot read it. That field is unused, so map it to None.
-        rec = ast.literal_eval(line.replace("nan", "None"))
+        # The per-sequence AUC field is `nan` when a learner's targets are all one class,
+        # and a numpy-2 scalar repr otherwise; literal_eval reads neither. That field is
+        # unused, so the wrapper is stripped and nan mapped to None. No eval().
+        rec = ast.literal_eval(_NP_SCALAR.sub(r"\1", line).replace("nan", "None"))
         ts.extend(rec[3])
         ps.extend(rec[4])
     p = np.asarray(ps, dtype=float)
@@ -167,6 +181,23 @@ def evaluate_run(
     }
 
 
+def score_saved_dump(model_name: str, seed_dir: Path, eval_dir=EVAL_DIR) -> dict:
+    """Metrics from an existing prediction dump (no checkpoint needed)."""
+    summary = json.loads((seed_dir / "run_summary.json").read_text())
+    pred_path = eval_dir / "predictions" / f"{model_name}_{seed_dir.name}_test_predictions.txt"
+    if not pred_path.exists():
+        raise SystemExit(f"--from-dumps {model_name}: {pred_path} missing")
+    y, p = parse_predictions(pred_path)
+    return {
+        "model": model_name,
+        "seed": summary["seed"],
+        "n_targets": int(len(y)),
+        "best_epoch": summary["best_epoch"],
+        "valid_auc": summary["valid_auc"],
+        **metrics_for(y, p),
+    }
+
+
 def to_markdown(df: pd.DataFrame) -> str:
     cols = list(df.columns)
     lines = ["| " + " | ".join(cols) + " |", "|" + "|".join("---" for _ in cols) + "|"]
@@ -181,6 +212,8 @@ def main() -> None:
     )
     ap.add_argument("--models", nargs="+", default=["dkt", "akt", "sakt"])
     ap.add_argument("--dataset-name", default=DATASET_NAME)
+    ap.add_argument("--from-dumps", nargs="*", default=[],
+                    help="models scored from their saved prediction dumps (no checkpoints)")
     args = ap.parse_args()
 
     import torch
@@ -201,13 +234,18 @@ def main() -> None:
         seed_dirs = sorted(
             (dataset_artifacts_dir(args.dataset_name) / model_name).glob("seed*/")
         )
-        seed_dirs = [d for d in seed_dirs if (d / f"{EMB_TYPE}_model.ckpt").exists()]
+        from_dump = model_name in args.from_dumps
+        need = "run_summary.json" if from_dump else f"{EMB_TYPE}_model.ckpt"
+        seed_dirs = [d for d in seed_dirs if (d / need).exists()]
         if not seed_dirs:
             print(
                 f"WARNING: no trained checkpoints for {model_name}; run train.py first"
             )
         for d in seed_dirs:
-            r = evaluate_run(model_name, d, data_cfg, test_loader, device, eval_dir)
+            if from_dump:
+                r = score_saved_dump(model_name, d, eval_dir)
+            else:
+                r = evaluate_run(model_name, d, data_cfg, test_loader, device, eval_dir)
             if r["n_targets"] != n_targets_csv:
                 raise RuntimeError(
                     f"{model_name}/{d.name}: {r['n_targets']} targets, expected {n_targets_csv}"
@@ -255,7 +293,9 @@ def main() -> None:
             if args.dataset_name == DATASET_NAME
             else f"- Dataset: `{args.dataset_name}`; conclusions apply to this population and its mapped items.\n"
         )
-        + "DKT/SAKT predict from KC ids; AKT also receives item ids, so the models do not see identical inputs.\n"
+        + "DKT/SAKT/DKVMN predict from KC ids; AKT and SAINT also receive item ids, so the models do not see identical inputs.\n"
+        + (f"- Scored from saved prediction dumps (checkpoints not kept): {', '.join(args.from_dumps)}\n"
+           if args.from_dumps else "")
     )
     md = (
         header

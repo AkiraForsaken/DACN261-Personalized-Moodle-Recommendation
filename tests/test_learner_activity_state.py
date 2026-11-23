@@ -173,3 +173,24 @@ def test_a_quiz_failed_before_the_cutoff_and_passed_after_it_is_failed_at_the_cu
     assert manifest["activity_state"]["quiz_status_disagreements"] == 0
     assert manifest["activity_state"]["quizzes_without_pass_mark"] is False
     assert manifest["output_counts"]["learner_activity_state"] == 2
+
+
+def test_a_quiz_without_pass_mark_is_completed_by_an_attempt_when_its_role_says_so():
+    practice = _activities(pass_fraction=None).assign(quiz_role=["", "", "practice"])
+    # Live: Moodle's completion state "complete" (1) on a quiz without a pass mark.
+    live, _ = _state(
+        attempts=[_attempt(7, 100, 0.25)], completions=[_completion(7, 12, 1, 100)],
+        activities=practice,
+    )
+    assert (live.loc[("7", 12), "status"], live.loc[("7", 12), "status_source"]) == (
+        "completed", "moodle_completion",
+    )
+    # Rebuilt from attempts (as_of replay): the role gives the same answer.
+    rebuilt, _ = _state(attempts=[_attempt(7, 100, 0.25)], activities=practice)
+    assert (rebuilt.loc[("7", 12), "status"], rebuilt.loc[("7", 12), "status_source"]) == (
+        "completed", "attempts",
+    )
+    # A check quiz (or a course without roles) keeps the pass-mark logic.
+    check = _activities().assign(quiz_role=["", "", "check"])
+    failed, _ = _state(attempts=[_attempt(7, 100, 0.25)], activities=check)
+    assert failed.loc[("7", 12), "status"] == "failed"

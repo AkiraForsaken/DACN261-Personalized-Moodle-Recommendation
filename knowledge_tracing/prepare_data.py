@@ -41,6 +41,9 @@ import pandas as pd
 # Configuration
 # --------------------------------------------------------------------------- #
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# english_bench: the synthetic English log prepared into its own workspace with the
+# same checks, so all five models can be compared without touching configs/.
+ENGLISH_NAMES = ("english_kt", "english_bench")
 DEFAULT_INPUT = PROJECT_ROOT / "data" / "raw" / "english_learning_events.csv"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed"
 
@@ -199,21 +202,27 @@ def build_maps(
                 f"Moodle question-to-KC mapping is missing columns: {sorted(missing)}"
             )
         mapping = question_kc_mapping.copy()
-        if mapping.empty or mapping[
-            [
-                "question_bank_entry_id",
-                "kc_id",
-                "kc_dimension",
-                "mapping_version",
-                "mapping_source",
+        if (
+            mapping.empty
+            or mapping[
+                [
+                    "question_bank_entry_id",
+                    "kc_id",
+                    "kc_dimension",
+                    "mapping_version",
+                    "mapping_source",
+                ]
             ]
-        ].isna().any().any():
+            .isna()
+            .any()
+            .any()
+        ):
             raise ValueError(
                 "Moodle question-to-KC mapping must contain complete, non-empty rows"
             )
-        mapping["item_id"] = "moodle-qbe:" + mapping[
-            "question_bank_entry_id"
-        ].astype(str)
+        mapping["item_id"] = "moodle-qbe:" + mapping["question_bank_entry_id"].astype(
+            str
+        )
         mapping["kc_id"] = mapping["kc_id"].astype(str)
         mapping["kc_dimension"] = (
             mapping["kc_dimension"].astype(str).str.strip().str.lower()
@@ -237,11 +246,17 @@ def build_maps(
             )
         item_kc = mapping.set_index("item_id")["kc_id"]
         if not df["kc_id"].astype(str).eq(df["item_id"].astype(str).map(item_kc)).all():
-            raise ValueError("Moodle event KC assignments differ from the curated crosswalk")
+            raise ValueError(
+                "Moodle event KC assignments differ from the curated crosswalk"
+            )
         event_dimensions = mapping.set_index("item_id")["kc_dimension"]
-        if not df["kc_dimension"].astype(str).str.lower().eq(
-            df["item_id"].astype(str).map(event_dimensions)
-        ).all():
+        if (
+            not df["kc_dimension"]
+            .astype(str)
+            .str.lower()
+            .eq(df["item_id"].astype(str).map(event_dimensions))
+            .all()
+        ):
             raise ValueError(
                 "Moodle event KC dimensions differ from the curated crosswalk"
             )
@@ -253,16 +268,12 @@ def build_maps(
         )
         concept_map.insert(1, "concepts", np.arange(len(concept_map), dtype=int))
         question_map = (
-            mapping[["item_id", "kc_id"]]
-            .sort_values("item_id")
-            .reset_index(drop=True)
+            mapping[["item_id", "kc_id"]].sort_values("item_id").reset_index(drop=True)
         )
         question_map.insert(1, "questions", np.arange(len(question_map), dtype=int))
         question_map = question_map.merge(concept_map, on="kc_id", how="left")
         return (
-            question_map[
-                ["item_id", "questions", "kc_id", "concepts", "kc_dimension"]
-            ],
+            question_map[["item_id", "questions", "kc_id", "concepts", "kc_dimension"]],
             concept_map,
         )
 
@@ -387,8 +398,12 @@ def main() -> None:
     ap.add_argument("--output-dir", type=Path, default=None)
     ap.add_argument(
         "--dataset-name",
-        choices=["english_kt", "moodle_kt"],
+        choices=["english_kt", "english_bench", "moodle_kt", "ednet_kt1"],
         default="english_kt",
+        help="english_kt = synthetic benchmark (curated paths in configs/); "
+        "english_bench = the same data and checks in the $KT_COURSE_DIR workspace "
+        "(five-model comparison); ednet_kt1 = external EdNet-KT1 "
+        "benchmark (written by datasets/ednet_kt1.py); moodle_kt = a course",
     )
     ap.add_argument(
         "--question-mapping",
@@ -406,7 +421,11 @@ def main() -> None:
         help="warn instead of failing on count mismatches",
     )
     args = ap.parse_args()
-    if args.dataset_name != "english_kt" and (
+    # Benchmarks carry their KC in each event row; only a course needs the
+    # curated question-to-KC crosswalk.
+    if args.dataset_name == "ednet_kt1" and args.input is None:
+        raise ValueError("--input is required for ednet_kt1 (a kt1_events_<N>.csv)")
+    if args.dataset_name == "moodle_kt" and (
         args.input is None or args.question_mapping is None
     ):
         # A course model is prepared from one course's export; there is no
@@ -423,20 +442,22 @@ def main() -> None:
             from kt_common import course_kt_dir
 
             args.output_dir = course_kt_dir() / "processed"
-    if args.dataset_name == "english_kt" and args.question_mapping is not None:
-        raise ValueError("--question-mapping is only valid for --dataset-name moodle_kt")
+    if args.dataset_name != "moodle_kt" and args.question_mapping is not None:
+        raise ValueError(
+            "--question-mapping is only valid for --dataset-name moodle_kt"
+        )
 
-    checks = Checks(strict=not args.no_strict and args.dataset_name == "english_kt")
+    checks = Checks(strict=not args.no_strict and args.dataset_name in ENGLISH_NAMES)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     # 2.1 ------------------------------------------------------------------
     raw = load_raw(args.input)
-    if args.dataset_name == "english_kt":
+    if args.dataset_name in ENGLISH_NAMES:
         checks.expect("raw_rows", len(raw), EXPECTED["raw_rows"])
     answers, filter_info = filter_answers(raw)
     if answers.empty:
         sys.exit("ERROR: no valid binary answer events remain after filtering")
-    if args.dataset_name == "english_kt":
+    if args.dataset_name in ENGLISH_NAMES:
         checks.expect("answer_rows", len(answers), EXPECTED["answer_rows"])
 
     # 2.2 ------------------------------------------------------------------
@@ -458,7 +479,7 @@ def main() -> None:
         else None
     )
     question_map, concept_map = build_maps(answers, question_mapping)
-    if args.dataset_name == "english_kt":
+    if args.dataset_name in ENGLISH_NAMES:
         checks.expect("learners", answers["learner_id"].nunique(), EXPECTED["learners"])
         checks.expect("concepts", len(concept_map), EXPECTED["concepts"])
         checks.expect("questions", len(question_map), EXPECTED["questions"])
@@ -473,13 +494,14 @@ def main() -> None:
     assert seq["learner_id"].is_unique
     sizes = seq["split"].value_counts().to_dict()
     expected_sizes = {"train": 840, "valid": 120, "test": 240}
-    if args.dataset_name == "english_kt" and len(seq) == EXPECTED["learners"]:
+    if args.dataset_name in ENGLISH_NAMES and len(seq) == EXPECTED["learners"]:
         checks.expect("split_train", sizes.get("train", 0), expected_sizes["train"])
         checks.expect("split_valid", sizes.get("valid", 0), expected_sizes["valid"])
         checks.expect("split_test", sizes.get("test", 0), expected_sizes["test"])
 
     mapping_coverage = None
     if question_mapping is not None:
+
         def question_indices_for_split(split):
             return {
                 int(value)
@@ -514,9 +536,13 @@ def main() -> None:
             ).hexdigest(),
             "mapped_questions": len(mapped_items),
             "questions_with_answer_events": len(mapped_items & observed_items),
-            "mapped_questions_without_answer_events": len(mapped_items - observed_items),
+            "mapped_questions_without_answer_events": len(
+                mapped_items - observed_items
+            ),
             "questions_observed_in_train": len(trained_items),
-            "mapped_questions_without_train_exposure": len(mapped_items - trained_items),
+            "mapped_questions_without_train_exposure": len(
+                mapped_items - trained_items
+            ),
             "validation_questions_without_train_exposure": len(
                 validation_items - trained_items
             ),

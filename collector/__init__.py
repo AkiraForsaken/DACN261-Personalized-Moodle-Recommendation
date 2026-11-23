@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .collect_activities import collect_activity_catalog
 from .collect_completion import collect_course_modules_completion
-from .collect_course_mappings import collect_course_mappings
+from .collect_course_mappings import collect_course_mappings, kc_of_module
 from .collect_events import collect_learning_events
 from .collect_quizzes import collect_quiz_attempts
 from .collect_question_answers import (
@@ -81,14 +81,17 @@ def run_collection(cursor, course_id=None, output_dir=None, learners=None):
     print("\nCollecting activity catalog...")
     catalog_rows = collect_activity_catalog(cursor, course_id)
 
+    # The KC mappings come first so every logstore event can carry its KC.
+    print("\nCollecting course KC mappings...")
+    *_, kc_activity_map = collect_course_mappings(cursor, course_id, catalog_rows)
+
     print("\nCollecting learning events...")
-    collect_learning_events(cursor, course_id, catalog_rows, user_filter)
+    collect_learning_events(
+        cursor, course_id, catalog_rows, user_filter, kc_of_module(kc_activity_map)
+    )
 
     print("\nCollecting quiz attempts...")
     collect_quiz_attempts(cursor, course_id, catalog_rows, user_filter)
-
-    print("\nCollecting course KC mappings...")
-    collect_course_mappings(cursor, course_id, catalog_rows)
 
     print("\nCollecting scored question-answer events...")
     collect_question_answer_events(cursor, course_id, user_filter)

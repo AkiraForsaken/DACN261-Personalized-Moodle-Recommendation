@@ -33,8 +33,8 @@ SESSION_GAP_SECONDS = int(os.getenv("MOODLE_SESSION_GAP_SECONDS", "1800"))
 
 # Which enrolled roles count as "learners". Set to "all" to disable filtering
 # (useful when debugging, but teacher/admin authoring traffic will pollute the
-# learner model - in the current test course the teacher account produced more
-# events than the student).
+# learner model; a teacher who edits the course can produce more events than
+# all learners together).
 INCLUDE_ROLES = os.getenv("MOODLE_INCLUDE_ROLES", "student")
 
 # By default the question-to-KC mapping is derived from Moodle question
