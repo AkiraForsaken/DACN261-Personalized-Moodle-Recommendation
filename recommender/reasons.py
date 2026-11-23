@@ -64,6 +64,13 @@ def reason_text(candidate, course):
 
     if evidence.get("contingent"):
         return _contingent_text(code, evidence, course, kc, quiz_name, answers)
+    if code == schemas.REVISIT_PREREQUISITE and evidence.get("retry_cap_reached"):
+        tries = evidence.get("quiz_failed_in_a_row")
+        return (
+            f"You have not passed {quiz_name} in {tries} tries. Leave it for now: "
+            f"this lesson on {kc}, from an earlier unit, comes before it. You can "
+            "come back to the quiz after you have passed another one."
+        )
     if code == schemas.REVISIT_PREREQUISITE:
         return _prerequisite_text(evidence, course, kc, quiz_name, answers, again="after rereading its lessons")
     if code == schemas.REVISE_BEFORE_RETRY:
@@ -94,6 +101,11 @@ def reason_text(candidate, course):
             f"You answered {answers} on {kc} correctly and have read its lesson since. "
             "Practise it again in this quiz."
         )
+    if code == schemas.CHALLENGE_STRONG_KC:
+        return (
+            f"You answered {answers} on {kc} correctly and passed its check. "
+            "Try these harder questions on it."
+        )
     if code == schemas.PREPARE_PREDICTED_DIFFICULTY:
         return (
             f"Estimate, not based on your answers: {kc} may be difficult for you. "
@@ -103,7 +115,11 @@ def reason_text(candidate, course):
         return "Start here: this is the first activity of the course."
     if code == schemas.CONTINUE_COURSE:
         topic = activity.topic if activity else ""
-        return f"Next in {topic}." if topic else "Next in the course."
+        nxt = f"Next in {topic}." if topic else "Next in the course."
+        stuck = course.by_module.get(evidence.get("stuck_quiz_module_id"))
+        if stuck is not None:
+            return f"Move on for now; you can come back to {_quoted(stuck.name)} later. {nxt}"
+        return nxt
     if code == schemas.BASELINE_COURSE_ORDER:
         return "Next open activity in course order."
     if code == schemas.BASELINE_POPULARITY:

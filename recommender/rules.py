@@ -17,7 +17,17 @@ Remediation (rests on the learner's own graded answers)
                          config.PREREQUISITE_RELATION)
     review_weak_kc       an evidence-based concern on a KC outside a failed
                          quiz; its lesson has not been read since the last answer
-    practice_weak_kc     the same, lesson already read: practise in the quiz
+    practice_weak_kc     the same, lesson already read: practise in the KC's
+                         practice quiz (else its check quiz)
+
+    Retry cap: quizzes allow unlimited attempts. After
+    config.MAX_FAILED_CHECK_ATTEMPTS failed attempts of one check quiz in a
+    row, the quiz is "stuck": no revise/retry for it, its earlier-unit
+    prerequisite lessons are offered once (revisit_prerequisite with
+    ``retry_cap_reached``), its weak KCs go to low-stakes practice, and the
+    first forward item says the learner may move on (``stuck_quiz_module_id``,
+    shown to the teacher). Passing another check quiz afterwards releases it
+    for one more retry.
 
 Forward (the learner's way through the course)
 
@@ -27,15 +37,27 @@ Forward (the learner's way through the course)
     continue_course               next activity in course order from the
                                   learner's current unit
     start_course                  the learner has done nothing yet
+    challenge_strong_kc           a KC with enough answers at high accuracy
+                                  whose check is passed: its challenge quiz
+                                  (harder pool questions), second in the
+                                  forward items, at most config.MAX_CHALLENGE
+
+    Quiz roles (layout kc): only check quizzes are "the upcoming quiz"; a
+    KC's practice quiz drops out of course order once its check is passed; a
+    unit's check-in once any check of that unit was attempted; challenge
+    quizzes appear only through challenge_strong_kc. A course without roles
+    has only check quizzes.
 
 Contingency (precomputed, shown by Moodle only after a failed attempt)
 
-    For every quiz not yet passed, the branch "if this quiz is failed": its KC
+    For every check quiz not yet passed, the branch "if this quiz is failed": its KC
     lessons, weakest first, then the quiz again. For a quiz that is already
     failed, the branch for failing it again: the weakest KC's lesson, the
     earlier-unit prerequisites, the other weak lessons, the retry. Moodle
     activates a branch the moment the quiz is failed, so the list reacts
-    before the engine has refreshed the learner (or while it is down).
+    before the engine has refreshed the learner (or while it is down). A
+    failure that would reach the retry cap has no retry row; a stuck quiz has
+    no branch.
 
 Predictions are deliberately confined to the upcoming quiz. A deep model can
 flag most of the course for one learner; sending a Unit 1 learner to Unit 7
@@ -45,6 +67,7 @@ lessons on that basis would be neither explainable nor useful.
 from dataclasses import dataclass, field
 
 from . import config, schemas
+from .course import QUIZ_CHALLENGE, QUIZ_CHECKIN
 
 EVIDENCE_CONCERN = "evidence_based_concern"
 PREDICTION_CONCERN = "prediction_based_concern"
@@ -124,6 +147,46 @@ def _failed_after_revising(learner, course, quiz_module, weak):
     return False
 
 
+def failed_streak(learner, quiz_module):
+    """Failed attempts of the quiz in a row, counted from the latest one.
+
+    Needs the attempt history; without it the count is 0 (no cap applies).
+    """
+    state = learner.activity(quiz_module)
+    streak = 0
+    for _, passed in reversed(state.attempts if state else ()):
+        if passed:
+            break
+        streak += 1
+    return streak
+
+
+def _released(learner, course, quiz_module):
+    """Has the learner passed another check quiz since this quiz's last failure?"""
+    state = learner.activity(quiz_module)
+    if state is None or not state.attempts:
+        return False
+    last_failure = state.attempts[-1][0]
+    return any(
+        passed and finished > last_failure
+        for module_id, other in learner.activities.items()
+        if module_id != quiz_module and course.is_check_quiz(module_id)
+        for finished, passed in other.attempts
+    )
+
+
+def stuck_quizzes(learner, course):
+    """``{quiz_module: failed_in_a_row}`` of check quizzes at the retry cap."""
+    stuck = {}
+    for module_id, state in learner.activities.items():
+        if state.status != STATUS_FAILED or not course.is_check_quiz(module_id):
+            continue
+        streak = failed_streak(learner, module_id)
+        if streak >= config.MAX_FAILED_CHECK_ATTEMPTS and not _released(learner, course, module_id):
+            stuck[module_id] = streak
+    return stuck
+
+
 def _prerequisites(learner, course, quiz_module, weak, since, exclude=()):
     """Up to MAX_PREREQUISITES earlier-unit lessons for the quiz's weak KCs.
 
@@ -183,10 +246,13 @@ def remediation_candidates(learner, course, low_accuracy):
         (
             module_id
             for module_id, state in learner.activities.items()
-            if state.status == STATUS_FAILED and module_id in course.by_module
+            if state.status == STATUS_FAILED
+            and module_id in course.by_module
+            and course.is_check_quiz(module_id)
         ),
         key=lambda module_id: _sequence(course, module_id),
     )
+    stuck = stuck_quizzes(learner, course)
     for quiz_module in failed_quizzes:
         quiz = learner.activities[quiz_module]
         quiz_evidence = {
@@ -197,6 +263,24 @@ def remediation_candidates(learner, course, low_accuracy):
         }
         pending = []
         weak = _weak_kcs_of_failed_quiz(learner, course, quiz_module, low_accuracy)
+        if quiz_module in stuck:
+            # Retry cap reached: no revise/retry. Earlier-unit lessons not yet
+            # read since the last attempt, once; the quiz's own weak KCs stay
+            # uncovered, so they go to low-stakes practice below.
+            for index, pick in enumerate(
+                _prerequisites(learner, course, quiz_module, weak, quiz.last_attempt)
+            ):
+                covered.add(pick[0])
+                candidates.append(
+                    _prerequisite_candidate(
+                        pick, quiz_module,
+                        priority=(0, quiz.best_score or 0.0, _sequence(course, quiz_module), index),
+                    )
+                )
+                candidates[-1].evidence.update(
+                    quiz_evidence, retry_cap_reached=True, quiz_failed_in_a_row=stuck[quiz_module]
+                )
+            continue
         for kc_id, state in weak:
             covered.add(kc_id)
             lesson = course.lesson_of_kc.get(kc_id)
@@ -258,7 +342,8 @@ def remediation_candidates(learner, course, low_accuracy):
             continue
         accuracy = state.observed_accuracy if state.observed_accuracy is not None else 1.0
         lesson = course.lesson_of_kc.get(kc_id)
-        quiz_module = course.quiz_of_kc.get(kc_id)
+        # Low-stakes practice where the course has it, else the check quiz.
+        quiz_module = course.practice_of_kc.get(kc_id) or course.quiz_of_kc.get(kc_id)
         if lesson is not None and not _read_since(learner, lesson, state.last_attempt):
             candidates.append(
                 Candidate(
@@ -290,14 +375,27 @@ def _open_activities(learner, course):
     """Activities still ahead of the learner, from their current unit onwards.
 
     Skipped: activities already done; failed quizzes (remediation handles
-    them); and a lesson whose practice quiz is already passed, because the
-    lesson's purpose is met and reading it would not be "next".
+    them); a lesson or practice quiz whose KC's check quiz is already passed,
+    because its purpose is met and it would not be "next"; a unit's check-in
+    once the learner has attempted a check of that unit (it diagnoses before
+    teaching); and challenge quizzes (only ``challenge_strong_kc`` offers them).
     """
+    attempted_sections = {
+        course.by_module[module_id].section
+        for module_id, state in learner.activities.items()
+        if state.attempt_count and course.is_check_quiz(module_id)
+    }
+    practice_kc = {module_id: kc for kc, module_id in course.practice_of_kc.items()}
     for activity in course.from_section_of(learner.last_touched_module):
         state = learner.activity(activity.module_id)
         if state is not None and (state.done or state.status == STATUS_FAILED):
             continue
-        kc_id = course.kc_of_lesson.get(activity.module_id)
+        role = course.quiz_role(activity.module_id)
+        if role == QUIZ_CHALLENGE:
+            continue
+        if role == QUIZ_CHECKIN and activity.section in attempted_sections:
+            continue
+        kc_id = course.kc_of_lesson.get(activity.module_id) or practice_kc.get(activity.module_id)
         if kc_id is not None:
             quiz_module = course.quiz_of_kc.get(kc_id)
             if quiz_module is not None and learner.is_done(quiz_module):
@@ -305,11 +403,49 @@ def _open_activities(learner, course):
         yield activity
 
 
+def challenge_candidates(learner, course, max_challenge=config.MAX_CHALLENGE):
+    """Harder practice for KCs the learner has shown to be strong in.
+
+    A KC qualifies with at least ``CHALLENGE_MIN_ANSWERS`` answers at
+    ``CHALLENGE_MIN_ACCURACY`` or more, its check quiz passed, and a challenge
+    quiz the learner has not attempted. The KC whose check was passed most
+    recently comes first (it is fresh in mind).
+    """
+    picks = []
+    for kc_id, challenge in course.challenge_of_kc.items():
+        state = learner.kcs.get(kc_id)
+        check = course.quiz_of_kc.get(kc_id)
+        if (
+            state is None
+            or state.attempts < config.CHALLENGE_MIN_ANSWERS
+            or state.observed_accuracy is None
+            or state.observed_accuracy < config.CHALLENGE_MIN_ACCURACY
+            or check is None
+            or learner.activity(check) is None
+            or learner.activity(check).status != "passed"
+        ):
+            continue
+        done = learner.activity(challenge)
+        if done is not None and (done.attempt_count or done.done):
+            continue
+        picks.append((learner.activity(check).last_attempt or 0, kc_id, challenge, state))
+    picks.sort(key=lambda pick: (-pick[0], pick[1]))
+    return [
+        Candidate(
+            module_id=challenge,
+            reason_code=schemas.CHALLENGE_STRONG_KC,
+            kc_id=kc_id,
+            evidence={**_kc_evidence(kc_id, state), "check_quiz_module_id": course.quiz_of_kc[kc_id]},
+        )
+        for _, kc_id, challenge, state in picks[:max_challenge]
+    ]
+
+
 def forward_candidates(learner, course, max_prepare):
     """Prepare / continue / start candidates, in the order the learner meets them."""
     open_activities = list(_open_activities(learner, course))
     upcoming_quiz = next(
-        (a.module_id for a in open_activities if a.activity_type == "quiz"), None
+        (a.module_id for a in open_activities if course.is_check_quiz(a.module_id)), None
     )
     # Lessons still open; a lesson already read is not "preparation" any more.
     open_lesson_kcs = {
@@ -357,7 +493,38 @@ def forward_candidates(learner, course, max_prepare):
                 evidence={"position_in_course": activity.sequence},
             )
         )
+    challenges = challenge_candidates(learner, course)
+    if challenges:
+        position = 1 if candidates else 0
+        candidates[position:position] = challenges
     return candidates
+
+
+def mark_stuck(chosen, learner, course):
+    """Say on the first "continue" item of a ranked list why the list moves on.
+
+    Applied after ranking, so the note lands on an item that is really in the
+    list (an activity that is also a remediation item keeps that reason).
+    Returns ``chosen``.
+    """
+    stuck = stuck_quizzes(learner, course)
+    if not stuck:
+        return chosen
+    quiz_module = min(stuck, key=lambda module_id: _sequence(course, module_id))
+    first = next(
+        (
+            c for c in chosen
+            if c.reason_code == schemas.CONTINUE_COURSE and c.trigger_module_id is None
+        ),
+        None,
+    )
+    if first is not None:
+        first.evidence = {
+            **first.evidence,
+            "stuck_quiz_module_id": quiz_module,
+            "stuck_failed_attempts": stuck[quiz_module],
+        }
+    return chosen
 
 
 def _estimated_correctness(state):
@@ -377,15 +544,18 @@ def contingency_candidates(learner, course, low_accuracy, max_lessons=config.MAX
     the learner with the real attempt.
     """
     branches = []
-    quizzes = sorted(
-        (q for q in course.kcs_of_quiz if q in course.by_module),
-        key=lambda q: _sequence(course, q),
-    )
-    for quiz_module in quizzes:
-        if learner.is_done(quiz_module):
+    stuck = stuck_quizzes(learner, course)
+    for quiz_module in course.check_quizzes():
+        if learner.is_done(quiz_module) or quiz_module in stuck:
             continue
         state = learner.activity(quiz_module)
         failed_now = state is not None and state.status == STATUS_FAILED
+        # Failing once more reaches the cap: the branch then has no retry row.
+        at_cap_next = (
+            failed_now
+            and failed_streak(learner, quiz_module) + 1 >= config.MAX_FAILED_CHECK_ATTEMPTS
+            and not _released(learner, course, quiz_module)
+        )
         base = {"quiz_module_id": quiz_module, "contingent": True}
         lessons = []
         if failed_now:
@@ -426,16 +596,17 @@ def contingency_candidates(learner, course, low_accuracy, max_lessons=config.MAX
                 )
             )
         branch = lessons[:1] + prerequisites + lessons[1:]
-        branch.append(
-            Candidate(
-                module_id=quiz_module,
-                reason_code=schemas.RETRY_QUIZ,
-                evidence={
-                    **base,
-                    "quiz_pass_fraction": _round(state.pass_fraction) if state else None,
-                },
-                trigger_module_id=quiz_module,
+        if not at_cap_next:
+            branch.append(
+                Candidate(
+                    module_id=quiz_module,
+                    reason_code=schemas.RETRY_QUIZ,
+                    evidence={
+                        **base,
+                        "quiz_pass_fraction": _round(state.pass_fraction) if state else None,
+                    },
+                    trigger_module_id=quiz_module,
+                )
             )
-        )
         branches.extend(branch)
     return branches

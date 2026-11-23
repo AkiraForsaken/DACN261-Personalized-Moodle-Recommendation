@@ -19,7 +19,13 @@ from . import baselines, config, schemas
 from .inputs import load_inputs
 from .ranking import group_of, order_queue, select
 from .reasons import reason_text
-from .rules import contingency_candidates, forward_candidates, remediation_candidates
+from .rules import (
+    contingency_candidates,
+    forward_candidates,
+    mark_stuck,
+    remediation_candidates,
+    stuck_quizzes,
+)
 
 POLICY_RULES = "rules"
 POLICIES = (
@@ -46,6 +52,7 @@ def recommend(
             top_n,
             config.MAX_REMEDIATION,
         )
+        chosen = mark_stuck(chosen, learner, inputs.course)
         if full_queue:
             chosen = chosen + contingency_candidates(
                 learner, inputs.course, inputs.low_accuracy
@@ -177,6 +184,10 @@ def summarize(frame, inputs, top_n=config.TOP_N):
             str(k): int(v) for k, v in frame["basis"].value_counts().items()
         },
         "by_population": by_population,
+        # Learners with a check quiz at the retry cap (config.MAX_FAILED_CHECK_ATTEMPTS).
+        "learners_at_retry_cap": sum(
+            bool(stuck_quizzes(learner, inputs.course)) for learner in inputs.learners.values()
+        ),
         "queue": {
             "rows": int(len(queue)),
             "mean_length": round(float(queue.groupby("learner_id").size().mean()), 2)
@@ -230,6 +241,10 @@ def generate(
             "max_prepare": config.MAX_PREPARE,
             "max_prerequisites": config.MAX_PREREQUISITES,
             "prerequisite_relation": config.PREREQUISITE_RELATION,
+            "max_failed_check_attempts": config.MAX_FAILED_CHECK_ATTEMPTS,
+            "challenge_min_answers": config.CHALLENGE_MIN_ANSWERS,
+            "challenge_min_accuracy": config.CHALLENGE_MIN_ACCURACY,
+            "max_challenge": config.MAX_CHALLENGE,
             "full_queue": full_queue,
             "low_observed_accuracy_threshold": inputs.low_accuracy,
             "note": "design choices, not calibrated on learner data",
@@ -237,7 +252,17 @@ def generate(
         "course": {
             "recommendable_activities": len(inputs.course.activities),
             "kcs_with_lesson": len(inputs.course.lesson_of_kc),
+            # A KC's check quiz (named before quiz roles existed).
             "kcs_with_practice_quiz": len(inputs.course.quiz_of_kc),
+            "kcs_with_low_stakes_practice": len(inputs.course.practice_of_kc),
+            "kcs_with_challenge_quiz": len(inputs.course.challenge_of_kc),
+            "quizzes_by_role": dict(
+                Counter(
+                    inputs.course.quiz_role(a.module_id)
+                    for a in inputs.course.activities
+                    if a.activity_type == "quiz"
+                )
+            ),
         },
         "summary": summarize(frame, inputs, top_n),
         "inputs": inputs.input_files,

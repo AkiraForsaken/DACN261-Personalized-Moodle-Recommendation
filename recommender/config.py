@@ -16,7 +16,7 @@ RECOMMENDATIONS_FILE = "recommendations.csv"
 MANIFEST_FILE = "recommendation_manifest.json"
 
 # Bump when rules, ranking or reason texts change; stored on every row.
-RECOMMENDER_VERSION = "1.2.0"
+RECOMMENDER_VERSION = "1.3.0"
 
 # --- list shape --------------------------------------------------------------
 TOP_N = 5  # recommendations per learner
@@ -39,3 +39,18 @@ LOW_OBSERVED_ACCURACY = 0.60
 PREREQUISITE_RELATION = "same_dimension_earlier_unit"
 # At most this many earlier-unit lessons per failed quiz.
 MAX_PREREQUISITES = 2
+# Quizzes allow unlimited attempts. After this many failed attempts of the
+# same check quiz in a row, the recommender stops sending the learner back to
+# it (no revise/retry), offers the earlier-unit lessons once and lets the
+# learner move on; the teacher sees the quiz as "stuck" in the evidence. The
+# quiz is offered again once the learner passes another check quiz.
+MAX_FAILED_CHECK_ATTEMPTS = 3
+
+# --- challenge (layout kc: one challenge quiz per KC) ----------------------------
+# A KC counts as strong enough for harder practice with at least this many
+# answers at this observed accuracy, and its check quiz passed. The accuracy
+# matches the learner model's "strong" level (learner_model.config).
+CHALLENGE_MIN_ANSWERS = 5
+CHALLENGE_MIN_ACCURACY = 0.80
+# At most this many challenge items per list; they compete for forward slots.
+MAX_CHALLENGE = 1
