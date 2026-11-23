@@ -9,10 +9,15 @@ shows it as the learner's progress through the course.
 ``status``
 
     viewed     opened, nothing more (a page not yet complete, a quiz not attempted)
-    completed  an ungraded activity Moodle marks complete
+    completed  an ungraded activity Moodle marks complete, or a quiz without
+               a pass mark that is complete once attempted: Moodle's
+               completion state "complete", or (rebuilt from attempts) a
+               quiz whose role is practice, check-in, review or challenge
+               (``quiz_role`` in the activity catalog)
     passed     a quiz (or other graded activity) whose pass mark was reached
     failed     attempted without reaching the pass mark
-    attempted  a quiz attempted, outcome unknown (no pass mark, no completion record)
+    attempted  a quiz attempted, outcome unknown (no pass mark, no completion
+               record, no role saying an attempt completes it)
 
 ``completed`` and ``passed`` both mean "done"; ``DONE_STATUSES`` lists them.
 
@@ -71,6 +76,9 @@ SOURCE_VIEWS = "views"
 # Moodle completion states (see collector/collect_completion.py).
 _COMPLETE, _COMPLETE_PASS, _COMPLETE_FAIL, _COMPLETE_FAIL_HIDDEN = 1, 2, 3, 4
 _VIEW_CATEGORY = "content_view"
+# Quiz roles (collector.collect_activities.quiz_role) that have no pass mark
+# and are complete after any finished attempt.
+ATTEMPT_COMPLETES_ROLES = ("practice", "checkin", "review", "challenge")
 _SCORE_TOLERANCE = 1e-9
 
 
@@ -179,16 +187,20 @@ def _completions(completions):
     return rows.drop_duplicates(["learner_id", "course_module_id"], keep="last")
 
 
-def _quiz_status(completion_state, attempt_count, best_score, pass_fraction):
+def _quiz_status(completion_state, attempt_count, best_score, pass_fraction, role=""):
     """``(status, source)`` of one learner x quiz row."""
     if completion_state == _COMPLETE_PASS:
         return STATUS_PASSED, SOURCE_COMPLETION
     if completion_state in (_COMPLETE_FAIL, _COMPLETE_FAIL_HIDDEN):
         return STATUS_FAILED, SOURCE_COMPLETION
+    if completion_state == _COMPLETE and attempt_count and pass_fraction is None:
+        return STATUS_COMPLETED, SOURCE_COMPLETION
     if attempt_count:
         if pass_fraction is not None and best_score is not None:
             passed = best_score >= pass_fraction - _SCORE_TOLERANCE
             return (STATUS_PASSED if passed else STATUS_FAILED), SOURCE_ATTEMPTS
+        if role in ATTEMPT_COMPLETES_ROLES:
+            return STATUS_COMPLETED, SOURCE_ATTEMPTS
         return STATUS_ATTEMPTED, SOURCE_ATTEMPTS
     return STATUS_VIEWED, SOURCE_VIEWS
 
@@ -223,6 +235,11 @@ def build_activity_state(events, quizzes, completions, activities):
         if "pass_fraction" in catalog.columns
         else {}
     )
+    role_of = (
+        dict(zip(module_ids, catalog["quiz_role"].fillna("").astype(str)))
+        if "quiz_role" in catalog.columns
+        else {}
+    )
 
     rows, disagreements = [], 0
     for record in merged.itertuples(index=False):
@@ -238,9 +255,10 @@ def build_activity_state(events, quizzes, completions, activities):
             None if pass_fraction is None or pd.isna(pass_fraction) else float(pass_fraction)
         )
         if activity_type == "quiz" or attempt_count:
-            status, source = _quiz_status(state, attempt_count, best, pass_fraction)
+            role = role_of.get(module_id, "")
+            status, source = _quiz_status(state, attempt_count, best, pass_fraction, role)
             if source == SOURCE_COMPLETION and attempt_count:
-                rebuilt, _ = _quiz_status(None, attempt_count, best, pass_fraction)
+                rebuilt, _ = _quiz_status(None, attempt_count, best, pass_fraction, role)
                 if rebuilt in (STATUS_PASSED, STATUS_FAILED) and rebuilt != status:
                     disagreements += 1
         elif state == _COMPLETE:
