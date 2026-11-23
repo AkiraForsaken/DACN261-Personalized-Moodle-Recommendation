@@ -9,7 +9,10 @@
 //     which logs the view and sets "viewed" activity completion;
 //   * the quiz attempt: quiz_view(), then start, answer every question at its
 //     planned time, submit and grade; grading updates the quiz's
-//     pass-grade completion (complete_pass / complete_fail);
+//     pass-grade completion (complete_pass / complete_fail), or, for a quiz
+//     without a pass mark (practice, check-in, review, challenge), "complete".
+//     Random slots get the question the plan chose for them (``slots``,
+//     setup_start_attempt_with_questions in lib.php);
 //   * an optional review of the finished attempt (attempt_reviewed event).
 //
 // The script is resumable: attempts a learner already has are skipped, so
@@ -48,6 +51,22 @@ foreach ($modinfo->get_cms() as $cm) {
 }
 $coursequizids = array_keys($quizcms);
 $pages = $DB->get_records_list('page', 'id', array_map(fn($cm) => $cm->instance, $pagecms) ?: [0]);
+
+/** Question id of the latest version of a question-bank entry. */
+function latest_question_id(int $entryid): int {
+    global $DB;
+    static $cache = [];
+    if (!isset($cache[$entryid])) {
+        $questionid = $DB->get_field_sql(
+            'SELECT questionid FROM {question_versions} WHERE questionbankentryid = ?
+          ORDER BY version DESC', [$entryid], IGNORE_MULTIPLE);
+        if (!$questionid) {
+            cli_error("Question-bank entry {$entryid} from the plan is not in this site; run simulate-learners again.");
+        }
+        $cache[$entryid] = (int) $questionid;
+    }
+    return $cache[$entryid];
+}
 
 /**
  * A replay step: remember where the logs end and the wall-clock time, so the
@@ -163,7 +182,15 @@ foreach ($learners as $position => $learner) {
         $attemptnumber = count($previous) + 1;
         $lastattempt = $previous ? end($previous) : false;
         $attempt = quiz_create_attempt($quizobj, $attemptnumber, $lastattempt, $start, false, $user->id);
-        quiz_start_new_attempt($quizobj, $quba, $attempt, $attemptnumber, $start);
+        if (!empty($planned['slots'])) {
+            $forced = [];
+            foreach ($planned['slots'] as $choice) {
+                $forced[(int) $choice['slot']] = latest_question_id((int) $choice['entry_id']);
+            }
+            $attempt = setup_start_attempt_with_questions($quizobj, $quba, $attempt, $forced);
+        } else {
+            quiz_start_new_attempt($quizobj, $quba, $attempt, $attemptnumber, $start);
+        }
         quiz_attempt_save_started($quizobj, $quba, $attempt, $start);
 
         $attemptobj = \mod_quiz\quiz_attempt::create($attempt->id);
@@ -213,8 +240,13 @@ foreach ($learners as $position => $learner) {
         $quizgrade = $DB->get_field('quiz_grades', 'grade', ['quiz' => $quizid, 'userid' => $user->id]);
         $gradeitem = grade_item::fetch(['itemtype' => 'mod', 'itemmodule' => 'quiz',
             'iteminstance' => $quizid, 'itemnumber' => 0, 'courseid' => $course->id]);
-        $passed = $quizgrade !== false && (float) $quizgrade >= (float) $gradeitem->gradepass - 0.00001;
-        $wantstate = $passed ? COMPLETION_COMPLETE_PASS : COMPLETION_COMPLETE_FAIL;
+        if ((float) $gradeitem->gradepass > 0) {
+            $passed = $quizgrade !== false && (float) $quizgrade >= (float) $gradeitem->gradepass - 0.00001;
+            $wantstate = $passed ? COMPLETION_COMPLETE_PASS : COMPLETION_COMPLETE_FAIL;
+        } else {
+            // No pass mark: complete once graded (completionusegrade only).
+            $wantstate = COMPLETION_COMPLETE;
+        }
         if ($state !== $wantstate) {
             cli_error("Quiz {$quizid} completion for {$idnumber} is {$state}, expected {$wantstate} "
                 . "(grade {$quizgrade}, pass {$gradeitem->gradepass}).");

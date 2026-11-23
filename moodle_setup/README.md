@@ -5,13 +5,17 @@ instance, in one of two layouts (`build-course --layout`):
 
 | Layout              | Course         | Quizzes                                                            | Activity -> KC                        |
 | ------------------- | -------------- | ------------------------------------------------------------------ | ------------------------------------- |
-| `kc` (default)      | `ENG-MICRO-KC` | one **check quiz per KC**, its 4-5 questions only (96 quizzes)    | course-module **competency** (kc_id)  |
+| `kc` (default)      | `ENG-MICRO-KC` | per unit a **check-in**; per KC a **practice** and a **check** quiz; a **review** per unit from unit 2; a **challenge** quiz per KC (303 quizzes) | course-module **competency** (kc_id); quiz role = course-module ID number |
 | `dimension`         | `ENG-MICRO`    | one practice quiz per unit and dimension, ~3 KCs each (32 quizzes) | course-module ID number = kc_id       |
 
-`kc` is the microlearning layout (1 activity = 1 KC): a failed check points at
-one KC. `dimension` is the original course (id 10), kept as the mixed-quiz
-baseline. Both use the same content, the same KC question categories and the
-same lessons. It is built and fills it with simulated learners whose quiz
+`kc` is the microlearning layout, modelled on EdNet/Santa (diagnose, practise
+with feedback, check, review): every activity except the check-in and the
+review concerns one KC, so a failed check points at one KC. It is built as
+course 12 (rebuilt 2026-11-22; the earlier one-check-per-KC version was
+course 11, archived in `courses/local/11/`). `dimension` is the original
+course (id 10), kept as the mixed-quiz baseline. Both use the same check
+questions, KC question categories and lessons; only `kc` uses the practice
+pool, the question tags and the quiz roles. It is built and fills it with simulated learners whose quiz
 attempts, page views and activity completion are stored in Moodle itself. The
 course pipeline (`collector` -> `knowledge_engine` -> `learner_model`) can then
 be tested on data that went through the whole chain, Moodle included.
@@ -25,27 +29,29 @@ Moodle checkout is not modified: scripts and JSON inputs are copied to
 
 | Moodle object | Contents                                                                                                                                                                                         |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Course        | `English Microlearning` (`ENG-MICRO`), topics format, completion tracking on, start date 150 days ago                                                                                            |
-| Sections      | `Unit 1: Everyday Routines` ... `Unit 8`, one per unit                                                                                                                                           |
+| Course        | `ENG-MICRO-KC` (layout `kc`) or `English Microlearning` (`ENG-MICRO`, layout `dimension`), topics format, completion tracking on, start date 150 days ago                                        |
+| Sections      | `Unit 1: Everyday Routines` ... `Unit 8`, one per unit; layout `kc` adds a 9th section, `Challenge practice`                                                                                     |
 | Question bank | One course `qbank` with categories `top > Grammar / Vocabulary / Reading / Writing > one per KC`. Each KC category has **ID number = `kc_id`**, name = KC name, description = learning objective |
-| Questions     | 390 single-answer multiple-choice questions (4 or 5 per KC), options shuffled                                                                                                                    |
-| KC lessons    | One page per KC, `Lesson: <KC name>`, with **course-module ID number = `kc_id`**: explanation, examples, common mistake, self-check items with hidden answers, optional video                    |
-| Per unit      | Layout `kc`: overview page, then per KC its lesson followed by `Check: <KC name>` (its 4-5 questions). Layout `dimension`: overview page, then per dimension: that dimension's KC lessons followed by its practice quiz (`Unit N Grammar practice`, ...), immediate feedback, unlimited attempts                            |
+| Questions     | 390 single-answer multiple-choice check questions (4 or 5 per KC), options shuffled. Layout `kc` adds the 384-question practice pool (4 per KC) and tags every question: `ml-check`/`ml-pool`, `ml-difficulty-N`, `ml-cefr-xx` |
+| KC lessons    | One page per KC, `Lesson: <KC name>`: explanation, examples, common mistake, self-check items with hidden answers, optional video. Layout `dimension`: **course-module ID number = `kc_id`**; layout `kc`: no ID number (the competency names the KC) |
+| Per unit      | Layout `kc`: overview page, `Unit N check-in` (`CHECKIN-UN`: one random pool question per KC of the unit, 1 attempt), then per KC its lesson, `Practice: <KC>` (`PRACTICE-<kc>`: 2 random pool questions) and `Check: <KC>` (`CHECK-<kc>`: its 4-5 fixed check questions, pass 7/10), and from unit 2 `Unit N review` (`REVIEW-UN`: one random pool question on each of 8 earlier KCs). Section 9: `Challenge: <KC>` (`CHALLENGE-<kc>`: 2 random difficulty-3 pool questions). Layout `dimension`: overview page, then per dimension: that dimension's KC lessons followed by its practice quiz (`Unit N Grammar practice`, ...). All quizzes: immediate feedback, unlimited attempts except the check-in |
 
-That is 96 KCs, 96 lessons, 8 overview pages and 96 quizzes (layout `kc`) or
-32 quizzes (layout `dimension`) per course.
+That is 96 KCs, 96 lessons and 8 overview pages per course, with 303 quizzes
+(layout `kc`: 8 check-ins, 96 practice, 96 check, 7 review, 96 challenge; 536
+random slots) or 32 quizzes (layout `dimension`).
 
 **Competencies (layout `kc`).** The site-wide framework `ENG-MICRO-KCS` holds
 one competency per KC (ID number = `kc_id`, name = KC name, description =
 learning objective) under one parent competency per dimension (`DIM-Grammar`,
 ...). The framework is reused on a rebuild (competencies are updated, missing
-ones created). Every KC competency is added to the course, and each lesson and
-its check quiz are linked to their KC's competency (rule outcome "none": no
-automatic ratings). In this layout lessons carry **no** ID number, so the
-competencies really are the source. `build-course` stops if competencies are
-switched off for the site (_Site administration > Advanced features_); it
-never changes that setting. Questions stay in their KC category: Moodle has
-no per-question competency.
+ones created). Every KC competency is added to the course, and every lesson
+and quiz is linked to the competencies of its KCs (536 links: lessons,
+practice, check and challenge quizzes one each, a check-in its 12 KCs, a
+review its 8; rule outcome "none": no automatic ratings). In this layout
+lessons carry **no** ID number, so the competencies really are the source.
+`build-course` stops if competencies or tags are switched off for the site
+(_Site administration > Advanced features_); it never changes those settings.
+Questions stay in their KC category: Moodle has no per-question competency.
 
 **Pass mark of a check quiz.** 7/10 as everywhere; with 4 questions that means
 3 of 4 right, with 5 questions 4 of 5 (80 %).
@@ -60,7 +66,8 @@ recommendations to Moodle is `python -m moodle_sync push`.
 | Activity                | Complete when                                                                                   |
 | ----------------------- | ----------------------------------------------------------------------------------------------- |
 | Overview and KC lessons | the learner views the page                                                                      |
-| Practice quiz           | the learner reaches the **pass mark, 7/10 (70 %)**. Below it Moodle records `complete_fail` (3) |
+| Check quiz (`kc`), practice quiz (`dimension`) | the learner reaches the **pass mark, 7/10 (70 %)**. Below it Moodle records `complete_fail` (3) |
+| Check-in, practice, review, challenge (`kc`)   | the attempt is graded (no pass mark): `complete` (1)                       |
 
 The collector derives everything else from this layout at run time, with no
 hand-maintained mapping file (see `collector/collect_course_mappings.py`):
@@ -70,9 +77,13 @@ hand-maintained mapping file (see `collector/collect_course_mappings.py`):
 - `kc_topic_map.csv` from the quizzes that use each KC's questions;
 - `kc_activity_map.csv`: `role=learn` for the activity linked to the KC's
   competency (layout `kc`) or whose ID number is the `kc_id` (layout
-  `dimension`), `role=practice` for the quizzes holding the KC's questions;
+  `dimension`), `role=practice` for the quizzes holding or drawing the KC's
+  questions (fixed and random slots);
+- `activity_catalog.csv` `quiz_role` from each quiz's ID number;
+- `question_metadata.csv`: difficulty, item set and CEFR level from the tags;
 - `kc_mapping_report.json`: which source was used, how many quizzes test one
-  KC, and any quiz whose competencies disagree with its questions.
+  KC, quizzes per role, pool difficulty coverage, and any quiz whose
+  competencies disagree with its questions.
 
 A recommender can therefore go from a weak KC or a failed quiz straight to the
 lesson to revise.
@@ -187,7 +198,9 @@ repository root are equivalent: `moodle-setup.py`, `knowledge-engine.py`,
 # 0. Build the course once. It prints the course id. Default layout kc
 #    (ENG-MICRO-KC); --layout dimension builds the old ENG-MICRO.
 python -m moodle_setup build-course
-export MOODLE_COURSE_ID=<id>
+export MOODLE_COURSE_ID=<id>       # BEFORE any --plan-out below: with it unset,
+                                   # courses/local/$MOODLE_COURSE_ID/... becomes
+                                   # courses/local//data/, outside every workspace
 # simulate-learners / annotate-plan work on ENG-MICRO-KC unless given
 # --shortname ENG-MICRO (course 10's plans).
 
@@ -221,11 +234,13 @@ python moodle-collector.py                        # export without the simulated
 Injecting 20 learners takes under a minute; 300 learners (course 10: about
 2,300 attempts, 28,000 answers, 2,000 page views) take several minutes.
 
-**Data volume in layout `kc`.** One session is one quiz attempt, so with 4-5
-questions per quiz instead of 10-14 the same learners give roughly 2.5x fewer
-answers (not measured yet). `--session-scale` (default 3.5; mean sessions
-about 1 + 2 x scale) can raise the volume, but that changes the generator and
-must be reported as such. The same `SIM-` accounts are enrolled in each
+**Data volume in layout `kc` (measured, course 12, 300 learners, seed 7,
+2026-11-22).** 4,296 attempts (1,890 check, 1,888 practice, 308 check-in, 197
+challenge, 13 review) and 15,748 answers; all 96 KCs have at least 20 answers,
+so `status` is ready. Review quizzes are rare because a simulated learner
+seldom finishes all 12 KCs of a unit. `--session-scale` (default 3.5; mean
+sessions about 1 + 2 x scale) can raise the volume, but that changes the
+generator and must be reported as such. The same `SIM-` accounts are enrolled in each
 course they are simulated into; `remove-simulated` deletes them site-wide,
 from both courses. Progress is printed
 every 10 learners. If the run is interrupted, run the same command again:
@@ -266,7 +281,9 @@ used: `estimate` falls back to BKT with the reason "mapping changed since
 training; retrain required" until `train` is run on the new data. Moodle's
 recycle bin keeps a backup of the deleted course (_Course category > Recycle
 bin_) until it expires. Real test students must be enrolled again in the new
-course.
+course. The plugin tables keep the deleted course's snapshot and rows (nothing
+removes them on course deletion), so the nightly full sync tries that course
+every night and logs a failure until they are removed.
 
 ## How the simulated learners are made
 
@@ -292,6 +309,21 @@ the attempts, each learner:
 - moves on to the next quiz after passing, and sometimes goes back to an
   earlier one.
 
+**Courses with quiz roles (layout kc)** use `simulate_unit_plan` instead,
+with the same answer model. Item and KC difficulty follow the authored labels
+(`DIFFICULTY_OFFSET`, `CEFR_OFFSET`, plus noise), so "hard items are answered
+less often" is built into the generator. Navigation follows the unit
+sequence: overview and check-in on entering a unit; per KC lesson (by
+`study_propensity`), 0-2 practice attempts, then the check; after a fail a
+later retry (revising first by `revise_propensity`) and a move on after 3
+failed checks in a row; a unit's review quiz after its last KC (p 0.5); a
+session of practice on an earlier checked KC (p 0.15); a challenge attempt
+after a perfect check (p 0.2). Random slots draw distinct candidates per
+attempt and the plan records them per slot (`slots`). All values are generator
+assumptions, recorded under `navigation_assumptions` in the plan manifest.
+Courses without roles keep the original simulator exactly (pinned by digests
+in `tests/test_moodle_setup.py`).
+
 **Assumption:** reading a lesson adds `lesson_gain x learn_rate` to that KC's
 practice gain (`--lesson-gain`, default 0.5, i.e. half the gain of the first
 practice answer; `0` = lessons have no effect). This is a property of the
@@ -311,9 +343,16 @@ The value is recorded in the plan manifest under `page_behaviour`.
   wrong option, resolved through that attempt's shuffled order), submit,
   grade. Grading updates the quiz's pass-grade completion.
 - Reviews fire the attempt's `attempt_reviewed` event.
+- A random slot gets the question the plan chose for it
+  (`setup_start_attempt_with_questions` in `lib.php`). Core
+  `quiz_start_new_attempt()` can force only one random slot in 5.2 (it looks
+  forced ids up by `next_slot_number()`, which stays 1 while it fills random
+  slots), so the helper follows core's steps itself and checks every forced
+  question with core's own slot filter.
 - The script **stops** if Moodle's grade differs from the plan, or if a quiz's
   completion state is not `complete_pass` / `complete_fail` as the learner's
-  best grade says.
+  best grade says (or `complete` for a quiz without a pass mark), or if a
+  planned question does not match its random slot's filter.
 - Moodle stamps everything with the current time. After each step, the rows the
   step created are moved to the simulated time: log rows, activity completion
   (`course_modules_completion`), module views (`course_modules_viewed`) and the
@@ -347,15 +386,21 @@ finds no simulated learners, it removes both manifests.
 
 ## Checks after each step
 
-1. **After `build-course`**, in the browser: 8 unit sections; in each, the
-   overview, then lessons and a quiz per dimension. Every activity shows its
-   completion condition ("View", "Receive a passing grade"). The question bank
-   has 4 dimension categories and 96 KC categories with ID numbers. Preview one
-   quiz and one lesson.
-2. **Collector on the empty course**: `kc_catalog.csv` has 96 rows,
-   `moodle_question_kc_map.csv` 390, `kc_topic_map.csv` 96, and
-   `kc_activity_map.csv` 192 (96 `learn` + 96 `practice`). Enrolled users'
-   profiles are `cold_start_only`.
+1. **After `build-course`**: the summary prints `Quizzes by role: {"challenge": 96,
+   "check": 96, "checkin": 8, "practice": 96, "review": 7}; 536 random slots`
+   (layout `kc`). In the browser: 8 unit sections (overview, check-in, then
+   lesson / practice / check per KC, review from unit 2) and `Challenge
+   practice`. Every activity shows its completion condition. The question bank
+   has 4 dimension categories and 96 KC categories with ID numbers; questions
+   carry their `ml-` tags. Preview one practice quiz (two different pool
+   questions) and one lesson. Layout `dimension`: lessons and a quiz per
+   dimension.
+2. **Collector** (layout `kc`): `kc_catalog.csv` has 96 rows,
+   `moodle_question_kc_map.csv` and `question_metadata.csv` 774 (390 check +
+   384 pool, all labelled); `kc_mapping_report.json` shows `quizzes_by_role`
+   as above, `check_quizzes_single_kc` 96 of 96, and empty
+   `kcs_without_practice`, `kcs_missing_hard_pool_items`, `cefr_disagreements`
+   (all verified on course 12). Enrolled users' profiles start `cold_start_only`.
 3. **After 20 learners** (seed 7: 164 attempts, 2,019 answers, 120 lesson
    views, 35 overview views, 31 reviews):
    - `question_answer_events.csv` matches the plan answer for answer;
@@ -374,8 +419,8 @@ finds no simulated learners, it removes both manifests.
 ## Answering quizzes by hand
 
 To add real (non-simulated) answers, enrol an ordinary test student in
-`ENG-MICRO` (_Participants -> Enrol users_), log in as that student, read some
-lessons and take a few practice quizzes. Real accounts have no `SIM-` ID
+`ENG-MICRO-KC` (course 12) or `ENG-MICRO` (_Participants -> Enrol users_), log
+in as that student, read some lessons and take a few quizzes. Real accounts have no `SIM-` ID
 number, so their rows are labelled `moodle_collector` whether or not simulated
 learners are present (see Labelling above).
 
@@ -383,7 +428,7 @@ learners are present (see Labelling above).
 
 | Command                                                                                                   | Effect                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `build-course [--rebuild]`                                                                                | Creates `ENG-MICRO`. Refuses if it exists. `--rebuild` deletes it first, **including all attempts in it**. Run `simulate-learners` again afterwards. |
+| `build-course [--layout kc\|dimension] [--rebuild]`                                                        | Creates `ENG-MICRO-KC` (default) or `ENG-MICRO`. Refuses if it exists. `--rebuild` deletes it first, **including all attempts in it**, and creates it under a **new course id**. Run `simulate-learners` again afterwards. |
 | `simulate-learners [--learners N] [--seed S] [--lesson-gain G] [--plan-out F] [--dry-run] [--data-dir D]` | Plans and injects N simulated learners in total. Existing ones are kept.                                                                             |
 | `remove-simulated`                                                                                        | Deletes every `SIM-` user, with their attempts, log rows and completion records. The course stays.                                                   |
 | `check-content`                                                                                           | Validates the course content only.                                                                                                                   |

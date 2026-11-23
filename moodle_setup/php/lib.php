@@ -60,3 +60,80 @@ function setup_simulated_users(): array {
         'idnumber'
     );
 }
+
+/**
+ * Start a quiz attempt with the planned question in every random slot.
+ *
+ * Simulated learners only. Core quiz_start_new_attempt() accepts forced
+ * question ids, but looks them up by $quba->next_slot_number(), which stays 1
+ * while it fills the random slots (Moodle 5.2), so it can force one random
+ * slot only. This follows the same steps as core: fixed slots load their
+ * question, each random slot loads the planned one after core's own filter
+ * check (random_question_loader::is_filtered_question_available, category
+ * and tags), the usage is started with the least-used variant strategy, and
+ * the layout is built from the quiz sections. Fails loudly instead of
+ * substituting another question.
+ *
+ * @param \mod_quiz\quiz_settings $quizobj
+ * @param question_usage_by_activity $quba
+ * @param stdClass $attempt from quiz_create_attempt()
+ * @param array $questionidbyslot slot number => question id (random slots only)
+ * @return stdClass the attempt with its layout
+ */
+function setup_start_attempt_with_questions($quizobj, $quba, stdClass $attempt, array $questionidbyslot): stdClass {
+    $qubaids = new \mod_quiz\question\qubaids_for_users_attempts($quizobj->get_quizid(), $attempt->userid);
+    $quizobj->preload_questions();
+    $loader = new \core_question\local\bank\random_question_loader($qubaids, []);
+    $shuffle = $quizobj->get_quiz()->shuffleanswers;
+    $questions = $maxmark = $page = [];
+    $slot = 0;
+    foreach ($quizobj->get_questions(null, false) as $questiondata) {
+        $slot += 1;
+        $maxmark[$slot] = $questiondata->maxmark;
+        $page[$slot] = $questiondata->page;
+        if (!$questiondata->random) {
+            $questions[$slot] = question_bank::load_question($questiondata->questionid, $shuffle);
+            continue;
+        }
+        if (!isset($questionidbyslot[$slot])) {
+            cli_error("Quiz {$quizobj->get_quizid()} slot {$slot} is random but the plan names no question for it.");
+        }
+        $filters = $questiondata->filtercondition['filter'] ?? [];
+        if (!$loader->is_filtered_question_available($filters, (int) $questionidbyslot[$slot])) {
+            cli_error("Quiz {$quizobj->get_quizid()} slot {$slot}: planned question {$questionidbyslot[$slot]} "
+                . 'does not match the slot filter; run simulate-learners again.');
+        }
+        $questions[$slot] = question_bank::load_question((int) $questionidbyslot[$slot], $shuffle);
+    }
+    ksort($questions);
+    foreach ($questions as $slotnumber => $question) {
+        if ($quba->add_question($question, $maxmark[$slotnumber]) != $slotnumber) {
+            throw new coding_exception('Slot numbers have got confused.');
+        }
+    }
+    $quba->start_all_questions(
+        new \core_question\engine\variants\least_used_strategy($quba, $qubaids),
+        question_attempt_step::TIMECREATED_ON_FIRST_RENDER,
+        $attempt->userid
+    );
+    // Layout as in core: one entry per slot, 0 = page break, sections end a page.
+    $sections = array_values($quizobj->get_sections());
+    $layout = [];
+    foreach ($sections as $index => $section) {
+        if (!empty($section->shufflequestions)) {
+            cli_error("Quiz {$quizobj->get_quizid()} shuffles questions; the simulated replay does not support that.");
+        }
+        $last = isset($sections[$index + 1]) ? $sections[$index + 1]->firstslot - 1 : count($questions);
+        $currentpage = $page[$section->firstslot] ?? null;
+        for ($s = $section->firstslot; $s <= $last; $s += 1) {
+            if ($currentpage !== null && $page[$s] != $currentpage) {
+                $layout[] = 0;
+            }
+            $layout[] = $s;
+            $currentpage = $page[$s];
+        }
+        $layout[] = 0;
+    }
+    $attempt->layout = implode(',', $layout);
+    return $attempt;
+}

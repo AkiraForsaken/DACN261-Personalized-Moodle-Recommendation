@@ -4,11 +4,13 @@ import csv
 import hashlib
 import json
 import shutil
+from pathlib import Path
 
 import pytest
 
 from knowledge_engine import config as engine_config
 from knowledge_engine.phase import _simulator_ceiling_auc
+from knowledge_engine import simulator
 from knowledge_engine.simulator import simulate_plan
 from moodle_setup import __main__ as cli
 from moodle_setup import content
@@ -608,7 +610,7 @@ def test_kc_lesson_points_to_its_own_practice_and_check():
     assert "practise this point in the unit's" in dim_spec["lessons"][0]["html"]
 
 
-def test_build_refuses_quiz_roles_until_the_php_supports_them(monkeypatch):
+def test_build_refuses_quiz_roles_when_the_php_does_not_support_them(monkeypatch):
     calls = []
     monkeypatch.setattr(cli.docker, "copy_in", lambda *a: calls.append(a))
     monkeypatch.setattr(cli.docker, "run_php", lambda *a: calls.append(a))
@@ -616,3 +618,178 @@ def test_build_refuses_quiz_roles_until_the_php_supports_them(monkeypatch):
     with pytest.raises(SystemExit, match="cannot build them yet"):
         cli.main(["build-course", "--layout", "kc"])
     assert calls == []  # nothing copied into or run in Moodle
+    assert content.build_spec(layout="dimension").get("quizzes") is None
+
+
+def test_build_sends_the_kc_spec_and_reports_roles(monkeypatch, tmp_path, capsys):
+    sent = {}
+
+    def fake_copy_in(path, *args):
+        sent["spec"] = json.loads(Path(path).read_text())
+        return "/tmp/spec.json"
+
+    monkeypatch.setattr(cli.docker, "copy_in", fake_copy_in)
+    monkeypatch.setattr(cli.docker, "run_php", lambda *a: {
+        "course_id": 12, "shortname": "ENG-MICRO-KC", "kcs": 96, "questions": 774,
+        "lessons": 96, "quizzes": 303, "gradepass": 7, "layout": "kc", "competencies": 96,
+        "competency_links": 600, "quizzes_by_role": {"check": 96}, "random_slots": 600,
+    })
+    monkeypatch.setattr(cli.CourseWorkspace, "of", lambda *a: type(
+        "W", (), {"base": tmp_path, "write_course_info": lambda self, **k: None})())
+    assert cli.BUILD_SUPPORTS_QUIZ_ROLES
+    cli.main(["build-course", "--layout", "kc", "--rebuild"])
+    assert len(sent["spec"]["quizzes"]) == 303
+    out = capsys.readouterr().out
+    assert "Quizzes by role" in out and "MOODLE_COURSE_ID=12" in out
+
+
+# --- simulator: courses with quiz roles (layout kc) --------------------------------
+
+# Digests of simulate_plan on the mixed-quiz course, recorded before the
+# unit-sequence simulator was added: courses without roles must not change.
+SIMULATOR_DIGEST_PAGES = "2a95dd093c6b9fc536730e7502c5a8c5e125eb21e3b03499a89395432d794384"
+SIMULATOR_DIGEST_PLAIN = "40e9c75233f7c5e13d32414c021ad33ad215d2b4098045ccae61d4fc2b36708c"
+
+
+def test_simulator_without_roles_is_unchanged():
+    quizzes, lessons, overviews = _course_structure()
+    with_pages = simulate_plan(quizzes, n_learners=40, seed=11, start_unix=1_700_000_000,
+                               lessons=lessons, overviews=overviews)
+    plain = simulate_plan(_quizzes(), n_learners=40, seed=11, start_unix=1_700_000_000)
+    digest = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+    assert digest(list(with_pages)) == SIMULATOR_DIGEST_PAGES
+    assert digest(list(plain)) == SIMULATOR_DIGEST_PLAIN
+
+
+def _kc_structure():
+    """The shipped kc-layout course as export_structure.php reports it (fake ids)."""
+    spec = content.build_spec()
+    entry_of, items = {}, {}
+    cefr = {kc["kc_id"]: kc["cefr"] for kc in spec["kcs"]}
+    for entry_id, question in enumerate(spec["questions"], start=1):
+        entry_of[question["name"]] = entry_id
+        items[str(entry_id)] = {
+            "kc_id": question["kc_id"], "difficulty": str(question["difficulty"]),
+            "cefr": cefr[question["kc_id"]], "item_set": question["item_set"],
+            "tags": question["tags"],
+        }
+    quizzes_by_id = {quiz["idnumber"]: quiz for quiz in spec["quizzes"]}
+    quizzes, lessons, overviews, cmid = [], {}, {}, 1000
+    for section in spec["sections"]:
+        for item in section["items"]:
+            cmid += 1
+            if item["type"] == "overview":
+                overviews[str(section["number"])] = cmid
+            elif item["type"] == "lesson":
+                lessons[item["kc_id"]] = cmid
+            else:
+                quiz = quizzes_by_id[item["idnumber"]]
+                slots = [
+                    {
+                        "slot": number,
+                        "kc_id": slot["kc_id"],
+                        "candidates": sorted(
+                            int(entry) for entry, info in items.items()
+                            if info["kc_id"] == slot["kc_id"] and set(slot["tags"]) <= set(info["tags"])
+                        ),
+                    }
+                    for number, slot in enumerate(quiz["slots"], start=1)
+                ]
+                quizzes.append({
+                    "quiz_id": 5000 + len(quizzes), "cmid": cmid, "section": section["number"],
+                    "role": quiz["role"], "idnumber": quiz["idnumber"],
+                    "grade": 10.0, "gradepass": 7.0 if quiz["pass_fraction"] else 0.0,
+                    "entries": [{"entry_id": entry_of[n], "kc_id": quiz["kc_ids"][0]} for n in quiz["questions"]],
+                    "random_slots": slots,
+                })
+    return quizzes, lessons, overviews, items
+
+
+def _unit_plan(n_learners=60, seed=5, items=None):
+    quizzes, lessons, overviews, shipped = _kc_structure()
+    return simulate_plan(
+        quizzes, n_learners=n_learners, seed=seed, start_unix=1_700_000_000,
+        lessons=lessons, overviews=overviews, items=shipped if items is None else items,
+    ), quizzes
+
+
+def test_unit_plan_is_deterministic_and_extends_a_smaller_cohort():
+    (plan, manifest), _ = _unit_plan(n_learners=40)
+    (again, _), _ = _unit_plan(n_learners=40)
+    (larger, _), _ = _unit_plan(n_learners=70)
+    assert plan == again and larger[:40] == plan
+    assert manifest["navigation"] == "unit_sequence"
+    assert set(manifest["attempts_by_role"]) >= {"checkin", "practice", "check"}
+
+
+def test_unit_plan_follows_the_unit_sequence():
+    (plan, manifest), quizzes = _unit_plan(n_learners=120)
+    by_id = {quiz["quiz_id"]: quiz for quiz in quizzes}
+    for learner in plan:
+        checkins, first_check, streak = {}, {}, {}
+        for index, attempt in enumerate(learner["attempts"]):
+            quiz = by_id[attempt["quiz_id"]]
+            assert attempt["role"] == quiz["role"]
+            if quiz["role"] == "checkin":
+                assert quiz["quiz_id"] not in checkins  # one check-in attempt
+                checkins[quiz["quiz_id"]] = index
+            if quiz["role"] == "check":
+                first_check.setdefault(quiz["section"], index)
+                passed = sum(a["correct"] for a in attempt["answers"]) / len(attempt["answers"]) >= 0.7
+                streak[quiz["quiz_id"]] = 0 if passed else streak.get(quiz["quiz_id"], 0) + 1
+                assert streak[quiz["quiz_id"]] <= simulator.MAX_CHECK_ATTEMPTS_SIM
+        # The check-in of a unit comes before its first check.
+        for quiz_id, index in checkins.items():
+            section = by_id[quiz_id]["section"]
+            assert index < first_check.get(section, 10**9)
+    assert manifest["page_behaviour"]["moved_on_after_failed_checks"] > 0
+
+
+def test_random_slots_draw_distinct_candidates_and_record_them():
+    (plan, _), quizzes = _unit_plan(n_learners=60)
+    by_id = {quiz["quiz_id"]: quiz for quiz in quizzes}
+    seen_random = 0
+    for learner in plan:
+        for attempt in learner["attempts"]:
+            quiz = by_id[attempt["quiz_id"]]
+            if not quiz["random_slots"]:
+                assert attempt["slots"] == []
+                continue
+            seen_random += 1
+            chosen = [slot["entry_id"] for slot in attempt["slots"]]
+            assert len(chosen) == len(set(chosen)) == len(quiz["random_slots"])
+            for slot, design in zip(attempt["slots"], quiz["random_slots"]):
+                assert slot["slot"] == design["slot"] and slot["entry_id"] in design["candidates"]
+            assert [a["entry_id"] for a in attempt["answers"]] == chosen
+    assert seen_random > 0
+
+
+def test_authored_difficulty_drives_simulated_accuracy():
+    # A generator property by construction, not evidence about real learners.
+    (plan, _), _ = _unit_plan(n_learners=150)
+    _, _, _, items = _kc_structure()
+    right = {}
+    for learner in plan:
+        for attempt in learner["attempts"]:
+            for answer in attempt["answers"]:
+                level = items[str(answer["entry_id"])]["difficulty"]
+                right.setdefault(level, []).append(answer["correct"])
+    rate = {level: sum(v) / len(v) for level, v in right.items()}
+    assert rate["1"] > rate["2"] > rate["3"]
+
+
+def test_annotate_plan_reproduces_a_unit_plan_with_its_items():
+    from moodle_setup.plan import annotate_plan
+
+    quizzes, lessons, overviews, items = _kc_structure()
+    plan, manifest = simulate_plan(quizzes, n_learners=20, seed=7, start_unix=1_700_000_000,
+                                   lessons=lessons, overviews=overviews, items=items)
+    stored = json.loads(json.dumps({"manifest": manifest, "learners": plan}))
+    for learner in stored["learners"]:
+        for attempt in learner["attempts"]:
+            for answer in attempt["answers"]:
+                answer.pop("p_correct")
+    structure = {"quizzes": quizzes, "lessons": lessons, "overviews": overviews, "items": items}
+    users = {learner["number"]: 900 + learner["number"] for learner in plan}
+    annotated = annotate_plan(stored, structure, users)
+    assert annotated["learners"][0]["attempts"] == plan[0]["attempts"] or not plan[0]["attempts"]

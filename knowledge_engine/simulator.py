@@ -49,6 +49,28 @@ SIMULATED_COURSE_ID = 0
 DEFAULT_LESSON_GAIN = 0.5
 DEFAULT_PASS_FRACTION = 0.7
 
+# --- unit-sequence navigation (courses with quiz roles, layout kc) -------------
+# Used only when the course's quizzes carry the roles of moodle_setup layout
+# kc (check-in, practice, check, review, challenge). Every value below is a
+# generator assumption, recorded in the plan manifest.
+UNIT_ROLES = ("checkin", "practice")
+# Authored labels shift the drawn difficulties (logit units), plus noise, so
+# the labels and the simulated answers agree on average without being exact.
+DIFFICULTY_OFFSET = {"1": -0.6, "2": 0.0, "3": 0.6}
+ITEM_NOISE_SD = 0.3
+CEFR_OFFSET = {"A1": -0.6, "A2": -0.2, "B1": 0.2, "B2": 0.6}
+KC_NOISE_SD = 0.4
+# A simulated learner moves on after this many failed checks of one KC in a row.
+MAX_CHECK_ATTEMPTS_SIM = 3
+# After finishing a unit, the chance of taking its review quiz.
+P_REVIEW_QUIZ = 0.5
+# Chance that a session is spent practising an earlier, already checked KC.
+P_BACK = 0.15
+# After a check with every answer right, the chance of trying its challenge quiz.
+P_CHALLENGE = 0.2
+# Up to this many practice attempts before a KC's first check (binomial).
+MAX_PRACTICE_ATTEMPTS = 2
+
 
 def make_course(
     n_topics=6,
@@ -157,8 +179,15 @@ def simulate_plan(
     overviews=None,
     lesson_gain=DEFAULT_LESSON_GAIN,
     pass_fraction=DEFAULT_PASS_FRACTION,
+    items=None,
 ):
     """Decide every simulated learner's quiz attempts, answers and page views.
+
+    A course whose quizzes carry the roles of layout kc (``role`` ``checkin``
+    or ``practice`` present) is simulated by ``simulate_unit_plan`` instead;
+    ``items`` (entry id -> authored ``difficulty`` and ``cefr``) is used only
+    there. Everything below describes the path for courses without roles,
+    which is unchanged.
 
     ``quizzes`` is the course's ordered quiz list, each
     ``{"quiz_id": ..., "entries": [{"entry_id": ..., "kc_id": ...}, ...]}``,
@@ -198,6 +227,13 @@ def simulate_plan(
     of a plan are identical whatever the cohort size, so a cohort can be
     extended.
     """
+    if any(quiz.get("role") in UNIT_ROLES for quiz in quizzes):
+        return simulate_unit_plan(
+            quizzes, items=items or {}, n_learners=n_learners, seed=seed,
+            start_unix=start_unix, inactive_share=inactive_share,
+            session_scale=session_scale, lessons=lessons, overviews=overviews,
+            lesson_gain=lesson_gain, pass_fraction=pass_fraction,
+        )
     quizzes = [quiz for quiz in quizzes if quiz["entries"]]
     if not quizzes:
         raise ValueError("The course has no quiz with KC-mapped questions to simulate")
@@ -420,6 +456,397 @@ def simulate_plan(
             if use_pages
             else None
         ),
+    }
+    return plan, manifest
+
+
+def _quiz_kcs(quiz):
+    """KCs a quiz asks about: its fixed entries and its random slots, in order."""
+    kcs = [str(entry["kc_id"]) for entry in quiz.get("entries", [])]
+    kcs += [str(slot["kc_id"]) for slot in quiz.get("random_slots", [])]
+    return list(dict.fromkeys(kcs))
+
+
+def _unit_structure(quizzes):
+    """Units in course order: check-in, (KC, practice, check) per KC, review.
+
+    Also returns ``{kc_id: challenge quiz}``. Built from quiz roles only.
+    """
+    units, challenges = {}, {}
+    practice_of, order = {}, []
+    for quiz in quizzes:
+        role, section = quiz.get("role") or "check", int(quiz.get("section") or 0)
+        kcs = _quiz_kcs(quiz)
+        if role == "challenge":
+            if kcs:
+                challenges.setdefault(kcs[0], quiz)
+            continue
+        if role == "practice":
+            if kcs:
+                practice_of.setdefault(kcs[0], quiz)
+            continue
+        unit = units.setdefault(section, {"checkin": None, "kcs": [], "review": None})
+        if section not in order:
+            order.append(section)
+        if role == "checkin":
+            unit["checkin"] = unit["checkin"] or quiz
+        elif role == "review":
+            unit["review"] = unit["review"] or quiz
+        elif kcs:  # a check quiz: one KC in this layout
+            unit["kcs"].append([kcs[0], None, quiz])
+    for section in order:
+        for block in units[section]["kcs"]:
+            block[1] = practice_of.get(block[0])
+    usable = [
+        {"section": section, **units[section]} for section in order if units[section]["kcs"]
+    ]
+    return usable, challenges
+
+
+def simulate_unit_plan(
+    quizzes,
+    items,
+    n_learners=300,
+    seed=7,
+    start_unix=DEFAULT_START_UNIX,
+    inactive_share=0.05,
+    session_scale=3.5,
+    lessons=None,
+    overviews=None,
+    lesson_gain=DEFAULT_LESSON_GAIN,
+    pass_fraction=DEFAULT_PASS_FRACTION,
+):
+    """Simulated learners for a course with quiz roles (moodle_setup layout kc).
+
+    The answer model is the one of ``simulate_plan`` (ability, KC and item
+    difficulty, practice gain with diminishing returns, forgetting, lesson
+    gain), except that difficulties follow the authored labels: an item's
+    difficulty is ``DIFFICULTY_OFFSET[label] + N(0, ITEM_NOISE_SD)`` and a KC's
+    ``CEFR_OFFSET[level] + N(0, KC_NOISE_SD)``. That labelled hard items are
+    answered less often is therefore built in, not a finding.
+
+    Navigation follows the unit sequence. A learner starts in a random unit
+    and, session by session:
+
+    * on entering a unit views its overview and takes its check-in once;
+    * per KC: reads the lesson (``study_propensity``) before the first check,
+      takes 0-``MAX_PRACTICE_ATTEMPTS`` practice attempts, then the check;
+      after a pass moves to the next KC, after a fail retries in a later
+      session (revising the lesson first with ``revise_propensity``), and
+      moves on after ``MAX_CHECK_ATTEMPTS_SIM`` failed checks in a row;
+    * after the last KC of a unit takes its review quiz (``P_REVIEW_QUIZ``);
+    * sometimes spends a session practising an earlier checked KC (``P_BACK``);
+    * after a check with every answer right sometimes tries the KC's
+      challenge quiz (``P_CHALLENGE``).
+
+    Random slots draw distinct candidate questions within an attempt (the
+    plan records the choice per slot, and the injector forces it). Check-in
+    answers give the usual practice gain (generator assumption).
+
+    Returns ``(plan, manifest)`` like ``simulate_plan``; each attempt also has
+    ``role`` and ``slots`` (``[{"slot", "entry_id"}]`` for random slots).
+    """
+    units, challenges = _unit_structure(quizzes)
+    if not units:
+        raise ValueError("The course has no check quiz with KC-mapped questions to simulate")
+    lessons = {str(kc): int(cmid) for kc, cmid in (lessons or {}).items()}
+    overviews = {str(section): int(cmid) for section, cmid in (overviews or {}).items()}
+    items = {str(entry): info for entry, info in (items or {}).items()}
+    rng = np.random.default_rng(seed)
+
+    kc_ids = sorted({kc for quiz in quizzes for kc in _quiz_kcs(quiz)})
+    entry_ids = sorted(
+        {str(e["entry_id"]) for quiz in quizzes for e in quiz.get("entries", [])}
+        | {str(c) for quiz in quizzes for s in quiz.get("random_slots", []) for c in s["candidates"]}
+    )
+    cefr_of = {}
+    for entry_id in entry_ids:
+        info = items.get(entry_id) or {}
+        if info.get("cefr") and info.get("kc_id"):
+            cefr_of.setdefault(str(info["kc_id"]), str(info["cefr"]).upper())
+    kc_difficulty = dict(zip(
+        kc_ids,
+        [CEFR_OFFSET.get(cefr_of.get(kc), 0.0) for kc in kc_ids]
+        + rng.normal(0.0, KC_NOISE_SD, len(kc_ids)),
+    ))
+    item_difficulty = dict(zip(
+        entry_ids,
+        [DIFFICULTY_OFFSET.get(str((items.get(e) or {}).get("difficulty", "")), 0.0) for e in entry_ids]
+        + rng.normal(0.0, ITEM_NOISE_SD, len(entry_ids)),
+    ))
+    counts = dict.fromkeys(
+        ("lesson_views", "overview_views", "revisions", "reviews", "moved_on_after_failed_checks"), 0
+    )
+    attempts_by_role = {}
+
+    plan, probabilities, outcomes = [], [], []
+    for number in range(1, n_learners + 1):
+        # Every trait is drawn before the inactivity check, so one learner's
+        # inactivity never shifts another's random stream.
+        enrol = int(start_unix + rng.integers(0, 14 * DAY))
+        ability = rng.normal(0.0, 1.0)
+        learn_rate = rng.lognormal(np.log(0.35), 0.4)
+        half_life_days = rng.lognormal(np.log(30.0), 0.5)
+        kc_offset = dict(zip(kc_ids, rng.normal(0.0, 0.5, len(kc_ids))))
+        n_sessions = 1 + rng.poisson(rng.gamma(2.0, session_scale))
+        entry_unit = int(rng.integers(0, len(units)))
+        study_propensity = rng.beta(2.0, 3.0)
+        revise_propensity = rng.beta(2.0, 2.0)
+        review_propensity = rng.beta(1.5, 4.0)
+        practice_propensity = rng.beta(2.0, 2.0)
+        learner = {
+            "number": number,
+            "learner_id": f"sim-{number:04d}",
+            "enrol_start": enrol,
+            "attempts": [],
+        }
+        plan.append(learner)
+        if rng.random() < inactive_share:
+            continue
+
+        gain = dict.fromkeys(kc_ids, 0.0)
+        practice = dict.fromkeys(kc_ids, 0)
+        last_seen, attempts_per_quiz, failed_in_a_row = {}, {}, {}
+        seen_sections, checked, passed_checks = set(), [], set()
+        state = {"clock": enrol, "unit": entry_unit, "kc": 0, "revision": None}
+
+        def decay(kc_id, now):
+            if kc_id in last_seen:
+                elapsed_days = (now - last_seen[kc_id]) / DAY
+                gain[kc_id] *= 0.5 ** (elapsed_days / half_life_days)
+            last_seen[kc_id] = now
+
+        def view(cmid, kind, kc_id=None):
+            entry = {"cmid": cmid, "kind": kind, "kc_id": kc_id, "time": state["clock"]}
+            seconds = (
+                40 if kind == "overview"
+                else int(np.clip(rng.lognormal(np.log(150.0), 0.5), 20, 900))
+            )
+            state["clock"] += seconds
+            if kc_id is not None:
+                decay(kc_id, state["clock"])
+                gain[kc_id] += lesson_gain * learn_rate
+                counts["lesson_views"] += 1
+            else:
+                counts["overview_views"] += 1
+            return entry
+
+        def take(quiz, views, revision=False):
+            """One attempt; returns its share of right answers."""
+            quiz_key = quiz["quiz_id"]
+            attempts_per_quiz[quiz_key] = attempts_per_quiz.get(quiz_key, 0) + 1
+            role = quiz.get("role") or "check"
+            attempts_by_role[role] = attempts_by_role.get(role, 0) + 1
+            if views:
+                state["clock"] += 30
+            attempt = {
+                "quiz_id": quiz_key,
+                "attempt_number": attempts_per_quiz[quiz_key],
+                "role": role,
+                "start": state["clock"],
+                "revision": revision,
+                "views_before": list(views),
+                "review_at": None,
+                "slots": [],
+                "answers": [],
+            }
+            entries = list(quiz.get("entries", []))
+            used = set()
+            for slot in quiz.get("random_slots", []):
+                candidates = [c for c in slot["candidates"] if str(c) not in used]
+                if not candidates:
+                    raise ValueError(
+                        f"Quiz {quiz_key} slot {slot['slot']}: no unused candidate question"
+                    )
+                chosen = candidates[int(rng.integers(0, len(candidates)))]
+                used.add(str(chosen))
+                attempt["slots"].append({"slot": slot["slot"], "entry_id": chosen})
+                entries.append({"entry_id": chosen, "kc_id": slot["kc_id"]})
+            right = 0
+            for entry in entries:
+                kc_id, entry_id = str(entry["kc_id"]), str(entry["entry_id"])
+                seconds = int(np.clip(rng.lognormal(np.log(25.0), 0.6), 3, 600))
+                state["clock"] += seconds
+                decay(kc_id, state["clock"])
+                logit = (
+                    ability + kc_offset[kc_id] + gain[kc_id]
+                    - kc_difficulty[kc_id] - item_difficulty[entry_id]
+                )
+                p_right = GUESS_FLOOR + (1.0 - GUESS_FLOOR) / (1.0 + np.exp(-1.2 * logit))
+                correct = int(rng.random() < p_right)
+                partial = bool(rng.random() < 0.15)
+                right += correct
+                gain[kc_id] += learn_rate / (1.0 + 0.3 * practice[kc_id])
+                practice[kc_id] += 1
+                probabilities.append(float(p_right))
+                outcomes.append(correct)
+                attempt["answers"].append(
+                    {
+                        "entry_id": entry["entry_id"],
+                        "kc_id": kc_id,
+                        "correct": correct,
+                        "p_correct": round(float(p_right), 10),
+                        "partial": partial and not correct,
+                        "time": state["clock"],
+                        "seconds": seconds,
+                    }
+                )
+            state["clock"] += 5
+            attempt["finish"] = state["clock"]
+            if rng.random() < review_propensity:
+                state["clock"] += int(rng.integers(20, 300))
+                attempt["review_at"] = state["clock"]
+                counts["reviews"] += 1
+            learner["attempts"].append(attempt)
+            return right / len(entries) if entries else 0.0
+
+        def pause():
+            state["clock"] += int(rng.integers(60, 300))
+
+        def check_block(kc_id, practice_quiz, check, views, unit):
+            """Lesson, practice and the check of one KC; returns nothing."""
+            first = check["quiz_id"] not in attempts_per_quiz
+            if first and kc_id in lessons and rng.random() < study_propensity:
+                views.append(view(lessons[kc_id], "lesson", kc_id))
+            n_practice = (
+                int(rng.binomial(MAX_PRACTICE_ATTEMPTS, practice_propensity))
+                if first and practice_quiz is not None else 0
+            )
+            for _ in range(n_practice):
+                take(practice_quiz, views)
+                views.clear()
+                pause()
+            share = take(check, views)
+            views.clear()
+            needed = _pass_fraction(check, pass_fraction)
+            if share >= needed:
+                passed_checks.add(check["quiz_id"])
+                failed_in_a_row[check["quiz_id"]] = 0
+                checked.append(kc_id)
+                state["kc"] += 1
+                challenge = challenges.get(kc_id)
+                if challenge is not None and share >= 1.0 and rng.random() < P_CHALLENGE:
+                    pause()
+                    take(challenge, [])
+                return
+            failed_in_a_row[check["quiz_id"]] = failed_in_a_row.get(check["quiz_id"], 0) + 1
+            if failed_in_a_row[check["quiz_id"]] >= MAX_CHECK_ATTEMPTS_SIM:
+                counts["moved_on_after_failed_checks"] += 1
+                state["kc"] += 1
+            elif rng.random() < revise_propensity:
+                state["revision"] = (kc_id, check)
+
+        for _ in range(n_sessions):
+            state["clock"] += int(rng.exponential(2.0 * DAY)) + 600
+            views = []
+            if state["revision"] is not None:
+                kc_id, check = state["revision"]
+                state["revision"] = None
+                counts["revisions"] += 1
+                if kc_id in lessons:
+                    views.append(view(lessons[kc_id], "lesson", kc_id))
+                share = take(check, views, revision=True)
+                needed = _pass_fraction(check, pass_fraction)
+                if share >= needed:
+                    passed_checks.add(check["quiz_id"])
+                    failed_in_a_row[check["quiz_id"]] = 0
+                    checked.append(kc_id)
+                    state["kc"] += 1
+                else:
+                    failed_in_a_row[check["quiz_id"]] += 1
+                    if failed_in_a_row[check["quiz_id"]] >= MAX_CHECK_ATTEMPTS_SIM:
+                        counts["moved_on_after_failed_checks"] += 1
+                        state["kc"] += 1
+                continue
+            if checked and rng.random() < P_BACK:
+                kc_id = checked[int(rng.integers(0, len(checked)))]
+                earlier = next(
+                    (block[1] for unit in units for block in unit["kcs"] if block[0] == kc_id),
+                    None,
+                )
+                if earlier is not None:
+                    take(earlier, [])
+                    continue
+            for _guard in range(2 * len(units) + 1):
+                unit = units[state["unit"] % len(units)]
+                section = str(unit["section"])
+                if section not in seen_sections:
+                    seen_sections.add(section)
+                    if section in overviews:
+                        views.append(view(overviews[section], "overview"))
+                checkin = unit["checkin"]
+                if checkin is not None and checkin["quiz_id"] not in attempts_per_quiz:
+                    take(checkin, views)
+                    views.clear()
+                    break
+                while (
+                    state["kc"] < len(unit["kcs"])
+                    and unit["kcs"][state["kc"]][2]["quiz_id"] in passed_checks
+                ):
+                    state["kc"] += 1
+                if state["kc"] < len(unit["kcs"]):
+                    kc_id, practice_quiz, check = unit["kcs"][state["kc"]]
+                    check_block(kc_id, practice_quiz, check, views, unit)
+                    break
+                # The unit is finished: maybe its review, then the next unit.
+                state["unit"] += 1
+                state["kc"] = 0
+                review = unit["review"]
+                if review is not None and rng.random() < P_REVIEW_QUIZ:
+                    take(review, views)
+                    views.clear()
+                    break
+
+    manifest = {
+        "simulated": True,
+        "warning": (
+            "Simulated learners. Results describe this generator, not real "
+            "learners, and must not be reported as validity evidence."
+        ),
+        "generator": "item-response model with practice gains and forgetting (not BKT)",
+        "navigation": "unit_sequence",
+        "seed": seed,
+        "start_unix": int(start_unix),
+        "parameters": {
+            "n_learners": n_learners,
+            "inactive_share": inactive_share,
+            "session_scale": session_scale,
+            "sample_range": None,
+            "lesson_gain": lesson_gain,
+            "pass_fraction": pass_fraction,
+        },
+        "navigation_assumptions": {
+            "max_check_attempts": MAX_CHECK_ATTEMPTS_SIM,
+            "max_practice_attempts": MAX_PRACTICE_ATTEMPTS,
+            "p_review_quiz": P_REVIEW_QUIZ,
+            "p_back": P_BACK,
+            "p_challenge": P_CHALLENGE,
+            "difficulty_offset": DIFFICULTY_OFFSET,
+            "item_noise_sd": ITEM_NOISE_SD,
+            "cefr_offset": CEFR_OFFSET,
+            "kc_noise_sd": KC_NOISE_SD,
+            "note": (
+                "Authored difficulty and CEFR labels set the drawn difficulties, "
+                "so their effect on simulated accuracy is built in. Check-in "
+                "answers give the usual practice gain."
+            ),
+        },
+        "learners": len(plan),
+        "learners_with_answers": sum(1 for learner in plan if learner["attempts"]),
+        "quiz_attempts": sum(len(learner["attempts"]) for learner in plan),
+        "attempts_by_role": dict(sorted(attempts_by_role.items())),
+        "answer_events": len(outcomes),
+        "overall_accuracy": round(float(np.mean(outcomes)), 4) if outcomes else None,
+        "ceiling_auc": ceiling_auc(probabilities, outcomes),
+        "pass_fraction_default": pass_fraction,
+        "page_behaviour": {
+            **counts,
+            "lesson_gain": lesson_gain,
+            "assumption": (
+                "Reading a KC lesson adds lesson_gain x learn_rate to that KC's "
+                "practice gain. This effect is a generator assumption."
+            ),
+        },
     }
     return plan, manifest
 

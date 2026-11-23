@@ -25,11 +25,10 @@ def _write_temp_json(payload, name):
     return path
 
 
-# php/build_course.php does not yet read spec["quizzes"] (quiz roles, random
-# pool slots, tags). Until it does, it would put each KC's pool questions into
-# its check quiz, so building a spec that has quizzes is refused. Set to True
-# together with the build_course.php change (plan Phase 4).
-BUILD_SUPPORTS_QUIZ_ROLES = False
+# php/build_course.php reads spec["quizzes"] and spec["sections"] (quiz roles,
+# random pool slots, question tags). Kept as a switch so a spec with quizzes is
+# never sent to a build script that would ignore them.
+BUILD_SUPPORTS_QUIZ_ROLES = True
 
 
 def build_course(args):
@@ -54,7 +53,12 @@ def build_course(args):
         f"{result['quizzes']} quizzes (pass mark {result['gradepass']}/10), layout "
         f"{result.get('layout', args.layout)}, {result.get('competencies', 0)} KC competencies "
         f"linked to {result.get('competency_links', 0)} activities.\n"
-        f"Workspace: {workspace.base}\n"
+        + (
+            f"Quizzes by role: {result['quizzes_by_role']}; {result.get('random_slots', 0)} random slots.\n"
+            if result.get("quizzes_by_role")
+            else ""
+        )
+        + f"Workspace: {workspace.base}\n"
         f"For the pipeline:  export MOODLE_COURSE_ID={result['course_id']}"
     )
 
@@ -78,6 +82,7 @@ def simulate_learners(args):
         overviews=structure.get("overviews") or {},
         lesson_gain=args.lesson_gain,
         session_scale=args.session_scale,
+        items=structure.get("items") or {},
     )
     answers = sum(len(a["answers"]) for learner in plan for a in learner["attempts"])
     attempts = sum(len(learner["attempts"]) for learner in plan)
@@ -85,6 +90,8 @@ def simulate_learners(args):
         f"Plan: {len(plan)} learners, {attempts:,} quiz attempts, {answers:,} answers "
         f"(seed {args.seed}). Generator ceiling AUC: {manifest['ceiling_auc']}."
     )
+    if manifest.get("attempts_by_role"):
+        print(f"Attempts by quiz role: {manifest['attempts_by_role']}.")
     pages = manifest.get("page_behaviour")
     if pages:
         print(
