@@ -227,8 +227,9 @@ themselves.
 ### Entry points
 
 Each stage has a thin script in the repository root; the logic lives in the
-package of the same name (`python -m <package>` is equivalent). Every script
-accepts `--help` and `--course <id>`.
+package of the same name (`python -m <package>` is equivalent). The pipeline
+stage scripts accept `--help` and `--course <id>`; `moodle-setup.py` selects
+its course by `--shortname`, and `engine-api.py` takes only `--host`/`--port`.
 
 | Script                                                                                            | Does                                                    |
 | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |

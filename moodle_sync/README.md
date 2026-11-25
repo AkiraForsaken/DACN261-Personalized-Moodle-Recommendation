@@ -66,7 +66,7 @@ python moodle-sync.py refresh --course <id> --learners 7,12   # refresh named le
    | continue, start, prepare                                        | the activity's completion is no longer incomplete | completion API |
    | `retry_quiz`                                                    | the quiz is passed                                | completion API |
    | `review_weak_kc`, `revise_before_retry`, `revisit_prerequisite` | the lesson was viewed since                       | standard log   |
-   | `practice_weak_kc`                                              | a quiz attempt was finished since                 | quiz attempts  |
+   | `practice_weak_kc`, `challenge_strong_kc`                       | a quiz attempt was finished since                 | quiz attempts  |
 
    "Since" is the learner's refresh, or for a row of an activated failure
    branch the failing attempt. A quiz failed since the refresh (completion
