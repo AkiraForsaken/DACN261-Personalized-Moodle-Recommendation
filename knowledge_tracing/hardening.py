@@ -6,7 +6,9 @@ Reads the prediction files written by evaluate.py and adds, on exactly the same
 targets (every answer of a test learner except the first):
 
   baselines  kc_mean, item_mean (train-fold, smoothed), logistic regression on
-             item + KC + learner-so-far (fitted on VALIDATION learners)
+             item + KC + learner-so-far (fitted on VALIDATION learners), and the
+             same logistic model plus PFA-style per-KC counts of the learner's
+             earlier correct and incorrect answers
   BKT        default  = the course's fixed parameters (knowledge_engine.config)
              fitted   = per-KC grid-search MLE on the TRAIN fold
   deep KT    each model's probability averaged over its seeds
@@ -83,6 +85,8 @@ PAIRS = [
     ("DKVMN", "logreg"),
     ("SAINT", "SAKT"),
     ("DKVMN", "DKT"),
+    ("AKT", "logreg+KC counts"),
+    ("logreg+KC counts", "logreg item"),
 ]
 
 
@@ -180,7 +184,7 @@ def build_predictors(data_cfg: dict, pred_dir: Path, models):
     bkt_fitted = fit_bkt_params(kc_sequences)
 
     def target_table(rows, with_bkt=False):
-        y, X, learner, b_def, b_fit = [], [], [], [], []
+        y, X, learner, b_def, b_fit, K = [], [], [], [], [], []
         for li, (_, row) in enumerate(rows.iterrows()):
             q, c, r = unpadded(row)
             csum = np.cumsum(r)
@@ -191,18 +195,27 @@ def build_predictors(data_cfg: dict, pred_dir: Path, models):
                 pf_ = next_answer_predictions_by_kc(
                     c.tolist(), r.tolist(), bkt_fitted, DEFAULT_PARAMS
                 )
+            right, wrong = {}, {}
             for t in range(1, len(r)):
+                kc = int(c[t - 1])
+                if r[t - 1]:
+                    right[kc] = right.get(kc, 0) + 1
+                else:
+                    wrong[kc] = wrong.get(kc, 0) + 1
                 X.append(
                     logreg_features(q, c, r, t, item_mean, kc_mean, global_mean, csum)
                 )
+                # PFA-style: the learner's earlier correct / incorrect answers on this KC.
+                K.append([np.log1p(right.get(int(c[t]), 0)), np.log1p(wrong.get(int(c[t]), 0))])
                 y.append(r[t])
                 learner.append(li)
                 if with_bkt:
                     b_def.append(pd_[t])
                     b_fit.append(pf_[t])
+        X = np.array(X)
         return (
             np.array(y),
-            np.array(X),
+            np.hstack([X, np.array(K)]) if len(X) else X,
             np.array(learner),
             np.array(b_def),
             np.array(b_fit),
@@ -210,12 +223,15 @@ def build_predictors(data_cfg: dict, pred_dir: Path, models):
 
     y_valid, X_valid, *_ = target_table(valid_rows)
     y_test, X_test, learner_test, bkt_def, bkt_fit = target_table(te, with_bkt=True)
-    lr = LogisticRegression(C=1.0, max_iter=1000).fit(X_valid, y_valid)
+    n_base = len(LOGREG_INPUTS)
+    lr = LogisticRegression(C=1.0, max_iter=1000).fit(X_valid[:, :n_base], y_valid)
+    lr_counts = LogisticRegression(C=1.0, max_iter=1000).fit(X_valid, y_valid)
     sigmoid = lambda x: 1 / (1 + np.exp(-x))  # noqa: E731
     predictors = {
         "kc_mean (baseline)": sigmoid(X_test[:, 1]),
         "item_mean (baseline)": sigmoid(X_test[:, 0]),
-        "logreg item+KC+learner (baseline)": lr.predict_proba(X_test)[:, 1],
+        "logreg item+KC+learner (baseline)": lr.predict_proba(X_test[:, :n_base])[:, 1],
+        "logreg+KC counts (PFA-style baseline)": lr_counts.predict_proba(X_test)[:, 1],
         "BKT default (fixed course params)": bkt_def,
         "BKT fitted (per-KC grid MLE, train fold)": bkt_fit,
     }
