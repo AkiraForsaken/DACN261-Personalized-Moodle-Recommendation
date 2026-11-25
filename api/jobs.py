@@ -7,6 +7,7 @@ a full run joins a queued full run. Jobs run under the course's file lock
 write the same workspace at once.
 """
 
+import subprocess
 import threading
 import time
 import uuid
@@ -14,13 +15,17 @@ from collections import OrderedDict, deque
 from datetime import datetime, timezone
 
 from course_workspace import CourseWorkspace
-from moodle_sync.refresh import full_run, refresh_learners
+from course_workspace import PROJECT_ROOT
+from moodle_sync.refresh import full_run, model_python, refresh_learners
 from moodle_sync.worker import WorkerBusy, course_lock
 
 from .bundles import PublishTransport
 
 KIND_REFRESH = "refresh"
 KIND_FULL = "full_run"
+# Training is deliberate: only an administrator's explicit request (the dashboard's
+# "Train course model" or the CLI) creates this job; refreshes and full runs never train.
+KIND_TRAIN = "train"
 QUEUED, RUNNING, DONE, FAILED = "queued", "running", "done", "failed"
 KEEP_JOBS = 500
 LOCK_RETRY_SECONDS = 2.0
@@ -37,6 +42,7 @@ class Job:
         self.course_id, self.kind = int(course_id), kind
         self.learners = set(int(learner) for learner in learners)
         self.reasons = {}
+        self.options = {}
         self.state, self.result, self.error = QUEUED, None, None
         self.created_at, self.started_at, self.finished_at = _now(), None, None
         self.finished = threading.Event()
@@ -48,6 +54,7 @@ class Job:
             "kind": self.kind,
             "learners": sorted(self.learners) if self.kind == KIND_REFRESH else None,
             "reasons": self.reasons or None,
+            "options": self.options or None,
             "state": self.state,
             "created_at": self.created_at,
             "started_at": self.started_at,
@@ -69,14 +76,15 @@ class CourseRunner:
         )
         self._thread.start()
 
-    def submit(self, kind, learners=(), reason=None):
+    def submit(self, kind, learners=(), reason=None, options=None):
         """Queue work; join a queued job of the same kind. Returns the job."""
         with self._lock:
             for job in self._queue:
-                if job.kind == kind and job.state == QUEUED:
+                if job.kind == kind and job.state == QUEUED and job.options == (options or {}):
                     break
             else:
                 job = Job(self.workspace.course_id, kind)
+                job.options = dict(options or {})
                 self._queue.append(job)
             job.learners |= {int(learner) for learner in learners}
             if reason:
@@ -122,10 +130,39 @@ class CourseRunner:
                 time.sleep(LOCK_RETRY_SECONDS)
 
 
+def train_course(workspace, population=None, python=None):
+    """Train the course's deep model and apply the promotion gate (knowledge_engine train).
+
+    Runs in the PyTorch environment like the model stages; returns the new
+    active-model record's decision. Never forced: a course that is not ready fails.
+    """
+    command = [model_python(python), "-m", "knowledge_engine", "train",
+               "--course", str(workspace.course_id), "--site", workspace.site]
+    if population:
+        command += ["--population", population]
+    result = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"training failed (exit {result.returncode}):\n{result.stderr.strip()[-2000:]}")
+    from knowledge_engine.phase import load_active_model
+
+    model = load_active_model(workspace.active_model_file) or {}
+    gate = model.get("gate") or {}
+    return {
+        "phase": model.get("phase"),
+        "estimator": model.get("estimator"),
+        "population": model.get("training_population") or model.get("cohort"),
+        "deep_auc": (gate.get("deep") or {}).get("auc"),
+        "bkt_auc": (gate.get("bkt") or {}).get("auc"),
+        "n_targets": gate.get("n_targets"),
+    }
+
+
 def default_run_job(collect=None, python=None):
     """How a job is executed: the refresh/full-run code, publishing instead of pushing."""
 
     def run(workspace, job):
+        if job.kind == KIND_TRAIN:
+            return train_course(workspace, job.options.get("population"), python=python)
         transport = PublishTransport()
         if job.kind == KIND_REFRESH:
             summary = refresh_learners(workspace, job.learners, transport, python=python, collect=collect)
@@ -155,8 +192,8 @@ class JobManager:
                 self._runners[course_id] = CourseRunner(self.workspace(course_id), self._run_job)
             return self._runners[course_id]
 
-    def submit(self, course_id, kind, learners=(), reason=None):
-        job = self.runner(int(course_id)).submit(kind, learners, reason)
+    def submit(self, course_id, kind, learners=(), reason=None, options=None):
+        job = self.runner(int(course_id)).submit(kind, learners, reason, options)
         with self._lock:
             self._jobs[job.id] = job
             while len(self._jobs) > KEEP_JOBS:
@@ -165,6 +202,12 @@ class JobManager:
 
     def job(self, job_id):
         return self._jobs.get(job_id)
+
+    def recent(self, course_id=None, limit=50):
+        """The most recent jobs, newest first, optionally of one course."""
+        jobs = [job for job in reversed(list(self._jobs.values()))
+                if course_id is None or job.course_id == int(course_id)]
+        return [job.describe() for job in jobs[:limit]]
 
     def active(self):
         return [job.describe() for job in list(self._jobs.values()) if job.state in (QUEUED, RUNNING)]

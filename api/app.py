@@ -7,7 +7,10 @@ never call this API, Moodle's PHP does.
     POST /v1/courses/{c}/events                          a learner's list may be stale -> refresh queued
     POST /v1/courses/{c}/learners/{u}/refresh?wait=1     recompute one learner -> bundle id
     POST /v1/courses/{c}/runs?wait=1                     rebuild the course -> bundle id
+    GET  /v1/jobs?course_id=&limit=                      recent jobs, newest first (engine dashboard)
     GET  /v1/jobs/{id}                                   state of a queued or finished job
+    GET  /v1/courses/{c}/status                          readiness, estimator in charge, last decision
+    POST /v1/courses/{c}/train?population=               train the course model (deliberate; never forced)
     GET  /v1/courses/{c}/bundles/{id}.zip                a finished bundle (Moodle imports it)
     GET  /v1/courses/{c}/learners/{u}/profile            the learner's profile, as JSON
     GET  /v1/courses/{c}/learners/{u}/recommendations    the learner's queue, as JSON
@@ -26,7 +29,7 @@ from pydantic import BaseModel
 from course_workspace import WorkspaceError, default_root
 
 from . import API_VERSION, bundles
-from .jobs import DONE, FAILED, KIND_FULL, KIND_REFRESH, JobManager
+from .jobs import DONE, FAILED, KIND_FULL, KIND_REFRESH, KIND_TRAIN, JobManager
 from .settings import Settings
 
 EVENT_TYPES = ("list_done", "quiz_failed", "new_learner", "manual")
@@ -68,6 +71,37 @@ def _latest_layout(workspace, learner):
         if not _read(run / "learner_model" / "learner_profile.csv", learner).empty:
             return run
     return workspace.base
+
+
+def _course_status(space):
+    """Readiness per population and the recorded decision, plus the time of the last full run."""
+    from knowledge_engine.phase import status
+
+    report = status(space.data, space.active_model_file)
+    model = report.pop("active_model") or {}
+    gate = model.get("gate") or {}
+    built = space.learner_model / "build_manifest.json"
+    report.pop("data_dir", None)
+    report["course_id"] = space.course_id
+    report["active_model"] = {
+        "phase": model.get("phase"),
+        "estimator": model.get("estimator"),
+        # The population the model was trained on; "cohort" only describes the data's mix.
+        "population": model.get("training_population") or model.get("cohort"),
+        "decided_at": model.get("decided_at"),
+        "reason": model.get("reason"),
+        "mapping_version": model.get("mapping_version"),
+        "deep_model": (model.get("deep_model") or {}).get("model_name"),
+        "gate_margin": model.get("gate_min_auc_margin"),
+        "gate": {
+            "deep_auc": (gate.get("deep") or {}).get("auc"),
+            "bkt_auc": (gate.get("bkt") or {}).get("auc"),
+            "n_targets": gate.get("n_targets"),
+            "n_test_learners": gate.get("n_test_learners"),
+        } if gate else None,
+    }
+    report["last_full_run"] = json.loads(built.read_text())["generated_at"] if built.is_file() else None
+    return report
 
 
 def create_app(settings=None, manager=None):
@@ -132,6 +166,37 @@ def create_app(settings=None, manager=None):
     def run(course_id: int = PathParam(ge=2), wait: bool = Query(False)):
         workspace(course_id)
         return answer(manager.submit(course_id, KIND_FULL), wait)
+
+    @app.get("/v1/jobs", dependencies=auth)
+    def jobs(course_id: int | None = Query(None, ge=2), limit: int = Query(50, ge=1, le=500)):
+        return {"jobs": manager.recent(course_id, limit), "active": len(manager.active())}
+
+    @app.get("/v1/courses/{course_id}/status", dependencies=auth)
+    def course_status(course_id: int = PathParam(ge=2)):
+        space = workspace(course_id)
+        try:
+            report = _course_status(space)
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=503, detail=f"No collected data yet; run the course first ({error})")
+        report["pending_refresh"] = manager.runner(course_id).pending_learners()
+        return report
+
+    @app.post("/v1/courses/{course_id}/train", dependencies=auth)
+    def train(course_id: int = PathParam(ge=2), population: str | None = Query(None),
+              wait: bool = Query(False)):
+        space = workspace(course_id)
+        try:
+            report = _course_status(space)
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=503, detail=f"No collected data yet ({error})")
+        chosen = population or report["training_population"]
+        readiness = report["readiness_by_population"].get(chosen)
+        if readiness is None:
+            raise HTTPException(status_code=422, detail=f"No learners of population {chosen!r} in this course")
+        if not readiness["ready"]:
+            # The dashboard never forces training; the CLI's --force stays a deliberate, manual step.
+            raise HTTPException(status_code=409, detail={"error": "course not ready", "unmet": readiness["unmet"]})
+        return answer(manager.submit(course_id, KIND_TRAIN, options={"population": chosen}), wait)
 
     @app.get("/v1/jobs/{job_id}", dependencies=auth)
     def job(job_id: str):

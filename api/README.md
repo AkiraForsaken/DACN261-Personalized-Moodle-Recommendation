@@ -40,6 +40,9 @@ docs, no CORS: Moodle's PHP is the only client.
 | `POST /v1/courses/{c}/learners/{u}/refresh?wait=1` | recompute one learner (~1 s); 200 with the job and `result.bundle.bundle_id` |
 | `POST /v1/courses/{c}/runs?wait=1` | rebuild the course (~1 min) |
 | `GET /v1/jobs/{id}` | a job's state, timings, bundle, error |
+| `GET /v1/jobs?course_id=&limit=` | recent jobs, newest first (kept in memory while the service runs; engine dashboard) |
+| `GET /v1/courses/{c}/status` | readiness per learner population, the recorded decision (phase, estimator, gate AUCs), last full run (engine dashboard) |
+| `POST /v1/courses/{c}/train?population=` | train the course's deep model and apply the promotion gate, as a `train` job in the PyTorch environment. Refused with 409 while the course is not ready; never forced (`--force` stays a manual CLI step). Started only by an administrator from the engine dashboard. |
 | `GET /v1/courses/{c}/bundles/{id}.zip` | a finished bundle (410 once a newer run replaced it) |
 | `GET /v1/courses/{c}/learners/{u}/profile` | profile, dimensions, skills, KCs with levels, quiz attempts (JSON) |
 | `GET /v1/courses/{c}/learners/{u}/recommendations` | the queue and the failure branches (JSON) |
@@ -75,6 +78,17 @@ with the job id. A failed job answers 502 with its error.
   keeps working from the stored queue.
 - The scheduled task `full_sync` (03:00) rebuilds every course with an active
   snapshot.
+- Engine dashboard (site administrators, `moodle/site:config`): Site
+  administration > Plugins > Local plugins > Microlearning > Microlearning
+  engine dashboard (`engine.php`), and per course from the course navigation
+  ("Engine dashboard", `enginecourse.php?id=`, site administrators only). Overview: engine reachable or not,
+  courses (engine workspaces and Moodle snapshots, deleted courses marked),
+  recent jobs, pending refresh requests by reason, failing refresh tasks.
+  Course page: readiness per population against each threshold, estimator in
+  charge per population, last training decision (both AUCs, margin, outcome,
+  chart), snapshot history, jobs; buttons "Rebuild course now" (queues the ad
+  hoc task `rebuild_course`) and "Train course model" (`POST .../train`;
+  disabled while the course is not ready or a job is running).
 - The privacy provider declares the engine as an external location.
 
 ## Tests and verification

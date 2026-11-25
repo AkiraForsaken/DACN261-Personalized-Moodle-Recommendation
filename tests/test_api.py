@@ -142,3 +142,70 @@ def test_a_failing_job_is_reported_not_swallowed(tmp_path, monkeypatch):
     response = client.post(f"/v1/courses/{COURSE_ID}/learners/8/refresh?wait=1", headers=HEADERS)
     assert response.status_code == 502
     assert "cannot reach the database" in response.json()["detail"]["error"]
+
+
+def test_dashboard_routes_need_the_token(client):
+    for method, path in [
+        ("get", "/v1/jobs"),
+        ("get", f"/v1/courses/{COURSE_ID}/status"),
+        ("post", f"/v1/courses/{COURSE_ID}/train"),
+    ]:
+        assert getattr(client, method)(path).status_code == 401
+
+
+def test_status_reports_readiness_and_the_recorded_decision(client):
+    write_course_export(CourseWorkspace.of(COURSE_ID).data)
+    status = client.get(f"/v1/courses/{COURSE_ID}/status", headers=HEADERS).json()
+    assert status["course_id"] == COURSE_ID
+    assert status["training_population"] in status["readiness_by_population"]
+    assert status["active_model"]["phase"] == 1  # nothing trained yet
+    assert status["active_model"]["gate"] is None
+    assert status["pending_refresh"] == []
+
+
+def test_status_without_collected_data_is_unavailable(client):
+    assert client.get(f"/v1/courses/{COURSE_ID}/status", headers=HEADERS).status_code == 503
+
+
+def test_training_is_refused_when_the_course_is_not_ready(client):
+    write_course_export(CourseWorkspace.of(COURSE_ID).data)
+    response = client.post(f"/v1/courses/{COURSE_ID}/train", headers=HEADERS)
+    assert response.status_code == 409
+    assert response.json()["detail"]["unmet"]
+
+
+def test_training_runs_as_a_job_and_is_listed(tmp_path, monkeypatch):
+    """A ready course trains in its own job; the job list shows it, newest first."""
+    monkeypatch.setenv("MICROLEARNING_HOME", str(tmp_path / "courses"))
+    CourseWorkspace.of(COURSE_ID).base.mkdir(parents=True)
+    import api.app as app_module
+
+    ready = {"ready": True, "unmet": []}
+    monkeypatch.setattr(app_module, "_course_status", lambda space: {
+        "training_population": "simulated", "readiness_by_population": {"simulated": ready}})
+    seen = []
+
+    def run_job(workspace, job):
+        seen.append((job.kind, job.options))
+        return {"phase": 2}
+
+    client = TestClient(create_app(Settings(api_token=TOKEN), JobManager(run_job=run_job)))
+    job = client.post(f"/v1/courses/{COURSE_ID}/train?wait=1", headers=HEADERS).json()
+    assert job["state"] == "done" and job["kind"] == "train"
+    assert seen == [("train", {"population": "simulated"})]
+    assert client.post(f"/v1/courses/{COURSE_ID}/train?population=moodle_collector",
+                       headers=HEADERS).status_code == 422
+    listed = client.get(f"/v1/jobs?course_id={COURSE_ID}", headers=HEADERS).json()
+    assert [entry["job_id"] for entry in listed["jobs"]] == [job["job_id"]]
+
+
+def test_status_names_the_training_population_not_the_data_mix(client):
+    """A mixed course trained on its simulated learners reports 'simulated'."""
+    space = CourseWorkspace.of(COURSE_ID)
+    write_course_export(space.data)
+    space.active_model_file.parent.mkdir(parents=True, exist_ok=True)
+    space.active_model_file.write_text(json.dumps({
+        "phase": 2, "estimator": "bkt", "cohort": "mixed", "training_population": "simulated",
+        "gate": {"deep": {"auc": 0.6}, "bkt": {"auc": 0.6}, "n_targets": 10}}))
+    status = client.get(f"/v1/courses/{COURSE_ID}/status", headers=HEADERS).json()
+    assert status["active_model"]["population"] == "simulated"
